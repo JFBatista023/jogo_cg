@@ -40,3 +40,6 @@
 # debug information files
 *.dwo
 highscore.txt
+
+cosmic_dash
+highscore.txt

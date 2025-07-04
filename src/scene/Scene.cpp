@@ -154,7 +154,15 @@ void Scene::updateFloorSections(float deltaTime) {
         
         // Reposicionar seção quando sai da tela
         if (section.position.z > 20.0f) {
-            section.position.z = -numSections * floorLength;
+            // Encontrar a seção mais atrás para posicionar logo após ela
+            float minZ = section.position.z;
+            for (const auto& otherSection : floorSections) {
+                if (otherSection.position.z < minZ) {
+                    minZ = otherSection.position.z;
+                }
+            }
+            // Posicionar logo após a seção mais atrás
+            section.position.z = minZ - floorLength;
         }
     }
 } 
