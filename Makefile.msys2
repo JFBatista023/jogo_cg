@@ -1,0 +1,93 @@
+# Makefile para Cosmic Dash - MSYS2/Windows
+# Jogo 3D Endless Runner em OpenGL/GLUT
+
+# Compilador e flags para MSYS2
+CXX = g++
+CXXFLAGS = -std=c++11 -Wall -Wextra -O2
+INCLUDES = -I./src
+
+# Bibliotecas para Windows/MSYS2
+LIBS = -lopengl32 -lglu32 -lfreeglut -static-libgcc -static-libstdc++
+
+# Arquivos fonte
+SOURCES = main.cpp \
+          src/player/Player.cpp \
+          src/obstacle/Obstacle.cpp \
+          src/scene/Scene.cpp \
+          src/collision/Collision.cpp \
+          src/score/Score.cpp \
+          src/menu/Menu.cpp \
+          src/texture/Texture.cpp \
+          src/lighting/Lighting.cpp
+
+# Arquivos objeto
+OBJECTS = $(SOURCES:.cpp=.o)
+
+# Nome do executável (com .exe para Windows)
+TARGET = cosmic_dash.exe
+
+# Regra principal
+all: $(TARGET)
+
+$(TARGET): $(OBJECTS)
+	$(CXX) $(OBJECTS) -o $(TARGET) $(LIBS)
+	@echo "Cosmic Dash compilado com sucesso para Windows!"
+	@echo "Execute com: ./$(TARGET)"
+
+# Regra para compilar arquivos .cpp
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+
+# Limpeza
+clean:
+	rm -f $(OBJECTS) $(TARGET)
+	@echo "Arquivos limpos!"
+
+# Executar o jogo
+run: $(TARGET)
+	./$(TARGET)
+
+# Instalar dependências (MSYS2)
+install-deps:
+	@echo "Para instalar dependências no MSYS2, execute:"
+	@echo "pacman -S mingw-w64-x86_64-gcc"
+	@echo "pacman -S mingw-w64-x86_64-make"
+	@echo "pacman -S mingw-w64-x86_64-freeglut"
+	@echo "pacman -S mingw-w64-x86_64-mesa"
+
+# Debug build
+debug: CXXFLAGS += -g -DDEBUG
+debug: $(TARGET)
+
+# Release build
+release: CXXFLAGS += -O3 -DNDEBUG
+release: clean $(TARGET)
+
+# Verificar dependências para MSYS2
+check-deps:
+	@echo "Verificando dependências no MSYS2..."
+	@which g++ > /dev/null || echo "g++ não encontrado! Execute: pacman -S mingw-w64-x86_64-gcc"
+	@which make > /dev/null || echo "make não encontrado! Execute: pacman -S make"
+	@echo "Verificação concluída."
+
+# Build estático (recomendado para distribuição)
+static: LIBS += -static
+static: $(TARGET)
+
+# Ajuda
+help:
+	@echo "Cosmic Dash - Makefile para MSYS2/Windows"
+	@echo "==========================================="
+	@echo "Comandos disponíveis:"
+	@echo "  make -f Makefile.msys2        - Compilar o jogo"
+	@echo "  make -f Makefile.msys2 run    - Compilar e executar"
+	@echo "  make -f Makefile.msys2 clean  - Limpar arquivos compilados"
+	@echo "  make -f Makefile.msys2 debug  - Compilar versão debug"
+	@echo "  make -f Makefile.msys2 release - Compilar versão otimizada"
+	@echo "  make -f Makefile.msys2 static - Compilar versão estática"
+	@echo "  make -f Makefile.msys2 install-deps - Mostrar comandos de instalação"
+	@echo "  make -f Makefile.msys2 check-deps   - Verificar dependências"
+	@echo "  make -f Makefile.msys2 help   - Mostrar esta ajuda"
+
+# Evitar conflitos com arquivos de mesmo nome
+.PHONY: all clean run install-deps debug release static check-deps help

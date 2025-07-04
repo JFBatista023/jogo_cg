@@ -26,6 +26,9 @@ void Menu::render() {
 }
 
 void Menu::renderMainMenu() {
+    // Limpar o buffer de cor primeiro
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
     // Configurar para renderização 2D
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
@@ -38,24 +41,31 @@ void Menu::renderMainMenu() {
     
     glDisable(GL_DEPTH_TEST);
     
-    // Fundo do menu MUITO MAIS CLARO
+    // Garantir que estamos no modo correto
+    glShadeModel(GL_SMOOTH);
+    glDisable(GL_LIGHTING);
+    
+    // Fundo do menu com gradiente claro
     glBegin(GL_QUADS);
-    // Gradiente claro de azul para branco
-    glColor3f(0.6f, 0.8f, 1.0f);  // Azul claro no topo
+    // Azul claro no topo
+    glColor3f(0.6f, 0.8f, 1.0f);
     glVertex2f(0, 600);
     glVertex2f(800, 600);
-    glColor3f(0.8f, 0.9f, 1.0f);  // Azul muito claro no meio
+    // Azul muito claro no meio
+    glColor3f(0.8f, 0.9f, 1.0f);
     glVertex2f(800, 400);
     glVertex2f(0, 400);
-    glColor3f(0.9f, 0.95f, 1.0f); // Quase branco
+    // Quase branco
+    glColor3f(0.9f, 0.95f, 1.0f);
     glVertex2f(800, 200);
     glVertex2f(0, 200);
-    glColor3f(1.0f, 1.0f, 1.0f);  // Branco puro na base
+    // Branco puro na base
+    glColor3f(1.0f, 1.0f, 1.0f);
     glVertex2f(800, 0);
     glVertex2f(0, 0);
     glEnd();
     
-    // Estrelas AZUIS ESCURAS para contraste no fundo claro
+    // Estrelas azuis escuras para contraste
     glColor3f(0.0f, 0.0f, 0.8f);
     glPointSize(4.0f);
     glBegin(GL_POINTS);
@@ -80,10 +90,10 @@ void Menu::renderMainMenu() {
     // Título do jogo
     renderTitle(450, "COSMIC DASH");
     
-    // Subtítulo BRANCO com sombra
+    // Subtítulo com sombra
     glColor3f(0.0f, 0.0f, 0.0f); // sombra
     renderTextCentered(401, "Endless Runner Espacial");
-    glColor3f(1.0f, 1.0f, 1.0f); // texto principal branco
+    glColor3f(0.2f, 0.2f, 0.8f); // texto principal azul escuro
     renderTextCentered(400, "Endless Runner Espacial");
     
     // Opções do menu
@@ -259,8 +269,8 @@ void Menu::renderTitle(float y, const std::string& text) {
     renderTextCentered(y - 1, text, GLUT_BITMAP_TIMES_ROMAN_24);
     renderTextCentered(y + 1, text, GLUT_BITMAP_TIMES_ROMAN_24);
     
-    // Título principal BRANCO BRILHANTE
-    glColor3f(1.0f, 1.0f, 1.0f);
+    // Título principal AZUL ESCURO para contraste no fundo claro
+    glColor3f(0.0f, 0.0f, 0.6f);
     renderTextCentered(y, text, GLUT_BITMAP_TIMES_ROMAN_24);
 }
 
@@ -274,7 +284,7 @@ int Menu::getTextWidth(const std::string& text, void* font) {
 
 void Menu::renderMenuOption(float y, const std::string& text, bool selected) {
     if (selected) {
-        // Fundo AZUL ESCURO para opção selecionada
+        // Fundo azul escuro para opção selecionada
         glColor3f(0.0f, 0.0f, 0.6f);
         int textWidth = getTextWidth("> " + text + " <", GLUT_BITMAP_HELVETICA_18);
         float x = (800 - textWidth) / 2.0f;
@@ -285,14 +295,14 @@ void Menu::renderMenuOption(float y, const std::string& text, bool selected) {
         glVertex2f(x - 20, y + 20);
         glEnd();
         
-        // Texto selecionado AMARELO BRILHANTE no fundo azul
+        // Texto selecionado amarelo brilhante
         glColor3f(1.0f, 1.0f, 0.0f);
         renderTextCentered(y, "> " + text + " <");
     } else {
-        // Texto não selecionado BRANCO com sombra
+        // Texto não selecionado azul escuro com sombra
         glColor3f(0.0f, 0.0f, 0.0f); // sombra
-        renderTextCentered(y + 1, text);
-        glColor3f(1.0f, 1.0f, 1.0f); // texto principal branco
+        renderTextCentered(y - 1, text);
+        glColor3f(0.0f, 0.0f, 0.8f); // texto principal azul escuro
         renderTextCentered(y, text);
     }
-} 
+}

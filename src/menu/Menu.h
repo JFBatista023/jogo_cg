@@ -46,9 +46,12 @@ public:
     // Getters
     int getSelectedOption() const { return selectedOption; }
     
+    // Inicialização do estado OpenGL para o menu
+    void initializeMenuState();
+    
 private:
     int getTextWidth(const std::string& text, void* font);
     void renderMenuOption(float y, const std::string& text, bool selected);
 };
 
-#endif 
+#endif
