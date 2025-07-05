@@ -6,7 +6,9 @@
 
 enum ObstacleType {
     STATIC,
-    MOVING_VERTICAL
+    MOVING_VERTICAL,
+    ROCKET,
+    HIGH_OBSTACLE
 };
 
 class Obstacle {
@@ -34,6 +36,7 @@ public:
     Vector3 getPosition() const { return position; }
     Vector3 getSize() const { return size; }
     bool isActive() const { return active; }
+    ObstacleType getType() const { return type; }
     
     // Para detecção de colisão
     Vector3 getMin() const;

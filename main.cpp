@@ -35,18 +35,67 @@ bool debugMode = false;
 float obstacleSpawnTimer = 0.0f;
 const float OBSTACLE_SPAWN_INTERVAL = 2.0f;
 
+// Sistema de velocidade progressiva
+float gameTime = 0.0f;
+float speedMultiplier = 1.0f;
+const float SPEED_INCREASE_INTERVAL = 20.0f; // A cada 20 segundos
+const float SPEED_INCREASE_AMOUNT = 0.5f; // Aumenta 0.5x
+
+// Sistema de câmera
+bool firstPersonView = false;
+
+// Declarações de funções
+void spawnObstacle();
+void spawnSingleObstacle();
+void spawnTwoObstacles();
+void setupFirstPersonCamera();
+
 // Função para spawnar obstáculos
 void spawnObstacle() {
+    // Decidir se vai spawnar 1 ou 2 obstáculos (30% de chance para 2 obstáculos)
+    bool spawnTwo = (rand() % 100) < 30;
+    
+    if (spawnTwo) {
+        // Spawnar 2 obstáculos em faixas diferentes
+        spawnTwoObstacles();
+    } else {
+        // Spawnar 1 obstáculo (comportamento original)
+        spawnSingleObstacle();
+    }
+}
+
+// Função para spawnar um único obstáculo
+void spawnSingleObstacle() {
     // Escolher faixa aleatória (0, 1, 2)
     int lane = rand() % 3;
     float x = (lane - 1) * 3.0f; // Converter para posição X
     
-    // Escolher tipo de obstáculo
-    ObstacleType type = (rand() % 2 == 0) ? STATIC : MOVING_VERTICAL;
+    // Escolher tipo de obstáculo (agora com 3 tipos)
+    int obstacleChoice = rand() % 3;
+    ObstacleType type;
+    Vector3 size;
+    
+    if (obstacleChoice == 0) {
+        type = STATIC;
+        size = Vector3(1.0f, 2.0f, 1.0f);
+    } else if (obstacleChoice == 1) {
+        type = MOVING_VERTICAL;
+        size = Vector3(1.0f, 2.0f, 1.0f);
+    } else if (obstacleChoice == 2) {
+        type = ROCKET;
+        size = Vector3(1.2f, 4.0f, 3.0f); // Foguete muito alto - impossível de pular
+    } else {
+        type = HIGH_OBSTACLE;
+        size = Vector3(1.0f, 2.5f, 1.0f); // Obstáculo alto - elevado do chão
+    }
     
     // Posição inicial (à frente do jogador)
-    Vector3 position(x, 1.0f, -30.0f);
-    Vector3 size(1.0f, 2.0f, 1.0f);
+    Vector3 position(x, 2.0f, -30.0f);
+    
+    // Ajustar posição Y para obstáculos altos (elevados do chão)
+    if (type == HIGH_OBSTACLE) {
+        position.y = 3.0f; // Elevado do chão para permitir deslize embaixo
+    }
     
     // Encontrar um obstáculo inativo para reutilizar
     bool spawned = false;
@@ -61,6 +110,99 @@ void spawnObstacle() {
     // Se não encontrou um inativo, criar novo
     if (!spawned && obstacles.size() < 20) {
         obstacles.push_back(Obstacle(position, size, type));
+    }
+}
+
+// Função para spawnar dois obstáculos em faixas diferentes
+void spawnTwoObstacles() {
+    // Escolher duas faixas diferentes
+    int lane1 = rand() % 3;
+    int lane2;
+    do {
+        lane2 = rand() % 3;
+    } while (lane2 == lane1); // Garantir que são faixas diferentes
+    
+    float x1 = (lane1 - 1) * 3.0f;
+    float x2 = (lane2 - 1) * 3.0f;
+    
+    // Escolher tipos de obstáculos (evitar dois obstáculos impossíveis simultaneamente)
+    int choice1 = rand() % 4;
+    int choice2 = rand() % 4;
+    
+    // Se ambos forem impossíveis de pular (ROCKET ou HIGH_OBSTACLE), mudar um deles
+    if ((choice1 == 2 || choice1 == 3) && (choice2 == 2 || choice2 == 3)) {
+        choice2 = rand() % 2; // Apenas STATIC ou MOVING_VERTICAL
+    }
+    
+    // Criar primeiro obstáculo
+    ObstacleType type1;
+    Vector3 size1;
+    
+    if (choice1 == 0) {
+        type1 = STATIC;
+        size1 = Vector3(1.0f, 2.0f, 1.0f);
+    } else if (choice1 == 1) {
+        type1 = MOVING_VERTICAL;
+        size1 = Vector3(1.0f, 2.0f, 1.0f);
+    } else if (choice1 == 2) {
+        type1 = ROCKET;
+        size1 = Vector3(1.2f, 4.0f, 3.0f);
+    } else {
+        type1 = HIGH_OBSTACLE;
+        size1 = Vector3(1.0f, 2.5f, 1.0f);
+    }
+    
+    // Criar segundo obstáculo
+    ObstacleType type2;
+    Vector3 size2;
+    
+    if (choice2 == 0) {
+        type2 = STATIC;
+        size2 = Vector3(1.0f, 2.0f, 1.0f);
+    } else if (choice2 == 1) {
+        type2 = MOVING_VERTICAL;
+        size2 = Vector3(1.0f, 2.0f, 1.0f);
+    } else if (choice2 == 2) {
+        type2 = ROCKET;
+        size2 = Vector3(1.2f, 4.0f, 3.0f);
+    } else {
+        type2 = HIGH_OBSTACLE;
+        size2 = Vector3(1.0f, 2.5f, 1.0f);
+    }
+    
+    // Posições iniciais
+    Vector3 position1(x1, 2.0f, -30.0f);
+    Vector3 position2(x2, 2.0f, -30.0f);
+    
+    // Ajustar posição Y para obstáculos altos (elevados do chão)
+    if (type1 == HIGH_OBSTACLE) {
+        position1.y = 3.0f;
+    }
+    if (type2 == HIGH_OBSTACLE) {
+        position2.y = 3.0f;
+    }
+    
+    // Encontrar obstáculos inativos para reutilizar
+    int spawned = 0;
+    for (auto& obstacle : obstacles) {
+        if (!obstacle.isActive() && spawned < 2) {
+            if (spawned == 0) {
+                obstacle.reset(position1, size1, type1);
+            } else {
+                obstacle.reset(position2, size2, type2);
+            }
+            spawned++;
+        }
+    }
+    
+    // Se não encontrou inativos suficientes, criar novos
+    while (spawned < 2 && obstacles.size() < 20) {
+        if (spawned == 0) {
+            obstacles.push_back(Obstacle(position1, size1, type1));
+        } else {
+            obstacles.push_back(Obstacle(position2, size2, type2));
+        }
+        spawned++;
     }
 }
 
@@ -102,6 +244,18 @@ void update() {
     
     // Limitar delta time para evitar grandes saltos
     if (deltaTime > 0.1f) deltaTime = 0.1f;
+    
+    // Atualizar tempo de jogo e velocidade (para todos os estados)
+    if (gameState == PLAYING) {
+        gameTime += deltaTime;
+        
+        // Aumentar velocidade a cada 20 segundos
+        int currentSpeedLevel = (int)(gameTime / SPEED_INCREASE_INTERVAL);
+        speedMultiplier = 1.0f + (currentSpeedLevel * SPEED_INCREASE_AMOUNT);
+        
+        // Atualizar velocidade da cena
+        scene->setFloorSpeed(20.0f * speedMultiplier);
+    }
     
     switch (gameState) {
         case PLAYING:
@@ -165,8 +319,12 @@ void display() {
     
     switch (gameState) {
         case PLAYING:
-            // Configurar câmera
-            scene->setupCamera();
+            // Configurar câmera baseada no modo de visão
+            if (firstPersonView) {
+                setupFirstPersonCamera();
+            } else {
+                scene->setupCamera();
+            }
             
             // Renderizar cena
             scene->render();
@@ -252,6 +410,10 @@ void keyboard(unsigned char key, int, int) {
                 case 'D':
                     debugMode = !debugMode;
                     break;
+                case 'v':
+                case 'V':
+                    firstPersonView = !firstPersonView;
+                    break;
             }
             break;
             
@@ -265,6 +427,8 @@ void keyboard(unsigned char key, int, int) {
                         player->reset();
                         obstacles.clear();
                         obstacleSpawnTimer = 0.0f;
+                        gameTime = 0.0f;
+                        speedMultiplier = 1.0f;
                     } else if (menu->getSelectedOption() == 1) {
                         // Sair
                         exit(0);
@@ -286,6 +450,8 @@ void keyboard(unsigned char key, int, int) {
                     player->reset();
                     obstacles.clear();
                     obstacleSpawnTimer = 0.0f;
+                    gameTime = 0.0f;
+                    speedMultiplier = 1.0f;
                     break;
                 case 27: // ESC
                     gameState = MENU;
@@ -325,6 +491,9 @@ void specialKeys(int key, int, int) {
                 case GLUT_KEY_RIGHT:
                     player->moveRight();
                     break;
+                case GLUT_KEY_DOWN:
+                    player->slide();
+                    break;
             }
             break;
             
@@ -351,6 +520,23 @@ void timer(int) {
     update();
     glutPostRedisplay();
     glutTimerFunc(16, timer, 0); // ~60 FPS
+}
+
+// Função de configuração da câmera em primeira pessoa
+void setupFirstPersonCamera() {
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    
+    // Posição da câmera na posição do jogador
+    Vector3 playerPos = player->getPosition();
+    float cameraHeight = 1.5f; // Altura da câmera acima do jogador
+    
+    // Configurar câmera em primeira pessoa
+    gluLookAt(
+        playerPos.x, playerPos.y + cameraHeight, playerPos.z + 2.0f, // Posição da câmera
+        playerPos.x, playerPos.y + cameraHeight, playerPos.z - 10.0f, // Ponto para onde olha
+        0.0f, 1.0f, 0.0f // Vetor up
+    );
 }
 
 // Função de limpeza
@@ -390,7 +576,9 @@ int main(int argc, char** argv) {
     std::cout << "=== COSMIC DASH ===" << std::endl;
     std::cout << "Controles:" << std::endl;
     std::cout << "  Setas <- -> : Mover entre faixas" << std::endl;
+    std::cout << "  Seta ↓      : Deslizar" << std::endl;
     std::cout << "  Espaco      : Pular" << std::endl;
+    std::cout << "  V           : Alternar visão (1ª/3ª pessoa)" << std::endl;
     std::cout << "  ESC         : Menu/Pausar" << std::endl;
     std::cout << "  D           : Debug mode" << std::endl;
     std::cout << "===================" << std::endl;

@@ -43,6 +43,16 @@ void Obstacle::update(float deltaTime) {
             // Movimento vertical usando função seno
             position.y = originalY + sin(time * oscillationSpeed) * oscillationAmplitude;
             break;
+            
+        case ROCKET:
+            // Foguete se move ligeiramente para cima e para baixo
+            position.y = originalY + sin(time * oscillationSpeed * 0.5f) * (oscillationAmplitude * 0.3f);
+            break;
+            
+        case HIGH_OBSTACLE:
+            // Obstáculo alto tem movimento sutil de flutuação
+            position.y = originalY + sin(time * oscillationSpeed * 0.3f) * (oscillationAmplitude * 0.2f);
+            break;
     }
 }
 
@@ -113,6 +123,115 @@ void Obstacle::render() const {
             glScalef(size.x, size.y, size.z);
             glutWireCube(1.0f);
             glPopMatrix();
+            break;
+            
+        case ROCKET:
+            // Foguete espacial - cinza metálico com detalhes
+            glColor3f(0.6f, 0.6f, 0.6f); // Corpo principal cinza
+            
+            // Corpo principal do foguete (mais longo)
+            glPushMatrix();
+            glScalef(size.x * 0.8f, size.y * 0.8f, size.z * 2.5f); // Proporção ajustada para altura maior
+            glutSolidCube(1.0f);
+            glPopMatrix();
+            
+            // Nose cone (ponta do foguete)
+            glColor3f(0.8f, 0.8f, 0.8f);
+            glPushMatrix();
+            glTranslatef(0.0f, 0.0f, size.z * 1.25f); // Posicionar na frente
+            glScalef(size.x * 0.4f, size.y * 0.4f, size.z * 0.8f);
+            glutSolidCone(0.5f, 1.0f, 8, 1);
+            glPopMatrix();
+            
+            // Asas laterais
+            glColor3f(0.5f, 0.5f, 0.5f);
+            // Asa esquerda
+            glPushMatrix();
+            glTranslatef(-size.x * 0.6f, 0.0f, 0.0f);
+            glScalef(size.x * 0.3f, size.y * 0.6f, size.z * 0.8f);
+            glutSolidCube(1.0f);
+            glPopMatrix();
+            
+            // Asa direita
+            glPushMatrix();
+            glTranslatef(size.x * 0.6f, 0.0f, 0.0f);
+            glScalef(size.x * 0.3f, size.y * 0.6f, size.z * 0.8f);
+            glutSolidCube(1.0f);
+            glPopMatrix();
+            
+            // Motor (parte traseira)
+            glColor3f(0.3f, 0.3f, 0.3f);
+            glPushMatrix();
+            glTranslatef(0.0f, 0.0f, -size.z * 1.25f);
+            glScalef(size.x * 0.6f, size.y * 0.6f, size.z * 0.6f);
+            glutSolidCube(1.0f);
+            glPopMatrix();
+            
+            // Chama do motor (efeito de propulsão)
+            glColor3f(1.0f, 0.3f, 0.0f); // Laranja
+            glPushMatrix();
+            glTranslatef(0.0f, 0.0f, -size.z * 1.8f);
+            glScalef(size.x * 0.3f, size.y * 0.3f, size.z * 0.8f);
+            glutSolidCone(0.5f, 1.0f, 8, 1);
+            glPopMatrix();
+            
+            // Chama interna mais brilhante
+            glColor3f(1.0f, 0.8f, 0.0f); // Amarelo
+            glPushMatrix();
+            glTranslatef(0.0f, 0.0f, -size.z * 1.9f);
+            glScalef(size.x * 0.15f, size.y * 0.15f, size.z * 0.6f);
+            glutSolidCone(0.5f, 1.0f, 8, 1);
+            glPopMatrix();
+            
+            // Contorno vermelho de perigo
+            glColor3f(1.0f, 0.0f, 0.0f);
+            glLineWidth(3.0f);
+            glPushMatrix();
+            glScalef(size.x, size.y, size.z * 2.5f);
+            glutWireCube(1.0f);
+            glPopMatrix();
+            break;
+            
+        case HIGH_OBSTACLE:
+            // Obstáculo alto - roxo escuro e ameaçador
+            glColor3f(0.5f, 0.0f, 0.8f); // Roxo escuro
+            
+            // Corpo principal alto
+            glPushMatrix();
+            glScalef(size.x, size.y, size.z);
+            glutSolidCube(1.0f);
+            glPopMatrix();
+            
+            // Detalhes estruturais
+            glColor3f(0.7f, 0.2f, 1.0f); // Roxo mais claro
+            glPushMatrix();
+            glScalef(size.x * 0.8f, size.y * 0.8f, size.z * 0.8f);
+            glutSolidCube(1.0f);
+            glPopMatrix();
+            
+            // Pontas afiadas no topo
+            glColor3f(1.0f, 0.0f, 0.5f); // Rosa/vermelho
+            glPushMatrix();
+            glTranslatef(0.0f, size.y * 0.4f, 0.0f);
+            glScalef(size.x * 0.3f, size.y * 0.2f, size.z * 0.3f);
+            glutSolidCone(0.5f, 1.0f, 8, 1);
+            glPopMatrix();
+            
+            // Efeito de energia
+            glColor3f(0.0f, 1.0f, 1.0f); // Ciano
+            glLineWidth(2.0f);
+            glPushMatrix();
+            glScalef(size.x, size.y, size.z);
+            glutWireCube(1.0f);
+            glPopMatrix();
+            
+            // Linhas de energia
+            glBegin(GL_LINES);
+            glVertex3f(-size.x * 0.4f, size.y * 0.3f, -size.z * 0.4f);
+            glVertex3f(size.x * 0.4f, size.y * 0.3f, size.z * 0.4f);
+            glVertex3f(size.x * 0.4f, size.y * 0.3f, -size.z * 0.4f);
+            glVertex3f(-size.x * 0.4f, size.y * 0.3f, size.z * 0.4f);
+            glEnd();
             break;
     }
     

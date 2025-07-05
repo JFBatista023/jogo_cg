@@ -16,7 +16,51 @@ bool Collision::checkCollision(const Player& player, const Obstacle& obstacle) {
     Vector3 obstacleMin = obstacle.getMin();
     Vector3 obstacleMax = obstacle.getMax();
     
-    return checkAABB(playerMin, playerMax, obstacleMin, obstacleMax);
+    // Verificar colisão básica AABB
+    bool basicCollision = checkAABB(playerMin, playerMax, obstacleMin, obstacleMax);
+    
+    // Se não há colisão básica, não há colisão
+    if (!basicCollision) return false;
+    
+    // Lógica específica para cada tipo de obstáculo
+    switch (obstacle.getType()) {
+        case STATIC:
+            // Obstáculo vermelho: no chão, pode pular ou desviar
+            // Se o jogador está deslizando, MORRE (não pode deslizar sobre obstáculo no chão)
+            if (player.getIsSliding()) {
+                return true; // Colisão = morte
+            }
+            // Se não está deslizando, colisão normal
+            return basicCollision;
+            
+        case MOVING_VERTICAL:
+            // Obstáculo móvel: comportamento similar ao estático
+            if (player.getIsSliding()) {
+                return true; // Colisão = morte
+            }
+            return basicCollision;
+            
+        case ROCKET:
+            // Foguete: muito alto, só pode desviar
+            if (player.getIsSliding()) {
+                return true; // Colisão = morte
+            }
+            return basicCollision;
+            
+        case HIGH_OBSTACLE:
+            // Obstáculo roxo: elevado, só pode deslizar embaixo ou desviar
+            if (player.getIsSliding()) {
+                // Se está deslizando E está embaixo do obstáculo, não há colisão
+                if (playerMax.y < obstacleMin.y) {
+                    return false; // Passa embaixo
+                }
+            }
+            // Se não está deslizando ou está tocando o obstáculo, há colisão
+            return true;
+            
+        default:
+            return basicCollision;
+    }
 }
 
 bool Collision::checkCollisionWithObstacles(const Player& player, 

@@ -10,7 +10,9 @@ private:
     Vector3 velocity;
     int currentLane;        // 0 = esquerda, 1 = centro, 2 = direita
     bool isJumping;
+    bool isSliding;
     float jumpTime;
+    float slideTime;
     float jumpHeight;
     float size;
     
@@ -19,6 +21,8 @@ private:
     static const float JUMP_SPEED;
     static const float GRAVITY;
     static const float GROUND_Y;
+    static const float SLIDE_DURATION;
+    static const float SLIDE_HEIGHT;
     
 public:
     Player();
@@ -27,6 +31,7 @@ public:
     void update(float deltaTime);
     void render();
     void jump();
+    void slide();
     void moveLeft();
     void moveRight();
     
@@ -34,6 +39,7 @@ public:
     Vector3 getPosition() const { return position; }
     Vector3 getSize() const { return Vector3(size, size, size); }
     bool getIsJumping() const { return isJumping; }
+    bool getIsSliding() const { return isSliding; }
     int getCurrentLane() const { return currentLane; }
     
     // Para detecção de colisão
