@@ -7,7 +7,7 @@ CXXFLAGS = -std=c++11 -Wall -Wextra -O2
 INCLUDES = -I./src
 
 # Bibliotecas
-LIBS = -lGL -lGLU -lglut
+LIBS = -lGL -lGLU -lglut -lfmod
 
 # Arquivos fonte
 SOURCES = main.cpp \
@@ -18,7 +18,8 @@ SOURCES = main.cpp \
           src/score/Score.cpp \
           src/menu/Menu.cpp \
           src/texture/Texture.cpp \
-          src/lighting/Lighting.cpp
+          src/lighting/Lighting.cpp \
+          src/audio/Audio.cpp
 
 # Arquivos objeto
 OBJECTS = $(SOURCES:.cpp=.o)
@@ -50,7 +51,7 @@ run: $(TARGET)
 # Instalar dependências (Ubuntu/Debian)
 install-deps:
 	sudo apt-get update
-	sudo apt-get install build-essential libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev
+	sudo apt-get install build-essential libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev libfmod-dev
 
 # Debug build
 debug: CXXFLAGS += -g -DDEBUG
@@ -66,6 +67,7 @@ check-deps:
 	@pkg-config --exists gl || echo "OpenGL não encontrado!"
 	@pkg-config --exists glu || echo "GLU não encontrado!"
 	@ldconfig -p | grep glut > /dev/null || echo "GLUT não encontrado!"
+	@ldconfig -p | grep fmod > /dev/null || echo "FMOD não encontrado! Execute: sudo apt-get install libfmod-dev"
 	@echo "Verificação concluída."
 
 # Ajuda

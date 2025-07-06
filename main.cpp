@@ -13,12 +13,14 @@
 #include "src/menu/Menu.h"
 #include "src/texture/Texture.h"
 #include "src/lighting/Lighting.h"
+#include "src/audio/Audio.h"
 
 // Variáveis globais do jogo
 Player* player;
 Scene* scene;
 Score* score;
 Menu* menu;
+Audio* audio;
 std::vector<Obstacle> obstacles;
 
 // Controle de tempo
@@ -215,13 +217,22 @@ void init() {
     
     // Inicializar sistemas
     Texture::init();
-    Lighting::init();
+    Lighting::initGameLighting();  // Usar a nova função de iluminação específica do jogo
     
     // Criar objetos do jogo
     player = new Player();
     scene = new Scene();
     score = new Score();
     menu = new Menu();
+    audio = new Audio();
+    
+    // Inicializar sistema de áudio
+    if (!audio->initialize()) {
+        std::cerr << "Aviso: Sistema de áudio não pôde ser inicializado!" << std::endl;
+    } else {
+        // Tocar música do menu inicial
+        audio->playMenuMusic();
+    }
     
     // Inicializar cena
     scene->init();
@@ -244,6 +255,11 @@ void update() {
     
     // Limitar delta time para evitar grandes saltos
     if (deltaTime > 0.1f) deltaTime = 0.1f;
+    
+    // Atualizar sistema de áudio
+    if (audio) {
+        audio->update();
+    }
     
     // Atualizar tempo de jogo e velocidade (para todos os estados)
     if (gameState == PLAYING) {
@@ -405,6 +421,10 @@ void keyboard(unsigned char key, int, int) {
                 case 27: // ESC
                     gameState = PAUSED;
                     menu->setState(PAUSED);
+                    // Pausar música da gameplay
+                    if (audio && audio->getCurrentMusic() == "misty_effect") {
+                        audio->pauseMusic();
+                    }
                     break;
                 case 'd':
                 case 'D':
@@ -416,7 +436,7 @@ void keyboard(unsigned char key, int, int) {
                     break;
             }
             break;
-            
+        
         case MENU:
             switch (key) {
                 case 13: // Enter
@@ -429,6 +449,14 @@ void keyboard(unsigned char key, int, int) {
                         obstacleSpawnTimer = 0.0f;
                         gameTime = 0.0f;
                         speedMultiplier = 1.0f;
+                        // Parar música do menu antes de iniciar a do jogo
+                        if (audio && audio->getCurrentMusic() == "faster_than_light") {
+                            audio->stopMusic();
+                        }
+                        // Tocar música do jogo
+                        if (audio) {
+                            audio->playGameMusic();
+                        }
                     } else if (menu->getSelectedOption() == 1) {
                         // Sair
                         exit(0);
@@ -439,7 +467,7 @@ void keyboard(unsigned char key, int, int) {
                     break;
             }
             break;
-            
+        
         case GAME_OVER:
             switch (key) {
                 case 'r':
@@ -452,28 +480,60 @@ void keyboard(unsigned char key, int, int) {
                     obstacleSpawnTimer = 0.0f;
                     gameTime = 0.0f;
                     speedMultiplier = 1.0f;
+                    // Parar música do menu antes de iniciar a do jogo
+                    if (audio && audio->getCurrentMusic() == "faster_than_light") {
+                        audio->stopMusic();
+                    }
+                    // Tocar música do jogo
+                    if (audio) {
+                        audio->playGameMusic();
+                    }
                     break;
                 case 27: // ESC
                     gameState = MENU;
                     menu->setState(MENU);
+                    // Parar música da gameplay antes de iniciar a do menu
+                    if (audio && audio->getCurrentMusic() == "misty_effect") {
+                        audio->stopMusic();
+                    }
+                    // Tocar música do menu
+                    if (audio) {
+                        audio->playMenuMusic();
+                    }
                     break;
             }
             break;
-            
+        
         case PAUSED:
             switch (key) {
                 case 13: // Enter
                     if (menu->getSelectedOption() == 0) {
                         // Continuar
                         gameState = PLAYING;
+                        // Retomar música da gameplay
+                        if (audio && audio->getCurrentMusic() == "misty_effect") {
+                            audio->resumeMusic();
+                        }
                     } else if (menu->getSelectedOption() == 1) {
                         // Menu principal
                         gameState = MENU;
                         menu->setState(MENU);
+                        // Parar música da gameplay antes de iniciar a do menu
+                        if (audio && audio->getCurrentMusic() == "misty_effect") {
+                            audio->stopMusic();
+                        }
+                        // Tocar música do menu
+                        if (audio) {
+                            audio->playMenuMusic();
+                        }
                     }
                     break;
                 case 27: // ESC
                     gameState = PLAYING;
+                    // Retomar música da gameplay
+                    if (audio && audio->getCurrentMusic() == "misty_effect") {
+                        audio->resumeMusic();
+                    }
                     break;
             }
             break;
@@ -545,6 +605,7 @@ void cleanup() {
     delete scene;
     delete score;
     delete menu;
+    delete audio;
     
     Texture::cleanup();
     

@@ -133,6 +133,40 @@ void Lighting::applyDefaultLighting() {
     setGlobalAmbient(0.1f, 0.1f, 0.2f);
 }
 
+void Lighting::initGameLighting() {
+    if (!initialized) {
+        init();
+    }
+    
+    std::cout << "Inicializando iluminação específica do jogo..." << std::endl;
+    
+    // Configurar iluminação ambiente espacial equilibrada
+    // Ambiente mais claro para garantir visibilidade mas preservar contraste
+    setGlobalAmbient(0.25f, 0.25f, 0.35f);
+    
+    // Luz principal - Luminária central espacial (posicionada acima do jogador)
+    Vector3 mainLightPos(0.0f, 25.0f, 10.0f); // Centralizada e mais alta
+    setupLight0(mainLightPos, 1.2f, 1.1f, 0.9f); // Luz branca/amarelada intensa
+    
+    // Luz secundária - Luz de preenchimento (iluminação suave lateral)
+    Vector3 fillLightPos(-8.0f, 15.0f, -8.0f);
+    setupLight1(fillLightPos, 0.6f, 0.6f, 0.8f); // Luz azulada mais intensa para preenchimento
+    
+    // Configurar propriedades otimizadas para jogabilidade
+    // Luz principal (luminária central) - alcance e intensidade otimizados
+    glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.5f);    // Menor atenuação constante
+    glLightf(GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.002f);    // Atenuação linear reduzida
+    glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.00005f); // Atenuação quadrática mínima
+    
+    // Luz de preenchimento - suave mas presente
+    glLightf(GL_LIGHT1, GL_CONSTANT_ATTENUATION, 0.8f);
+    glLightf(GL_LIGHT1, GL_LINEAR_ATTENUATION, 0.015f);
+    glLightf(GL_LIGHT1, GL_QUADRATIC_ATTENUATION, 0.0005f);
+    
+    enable();
+    std::cout << "Iluminação do jogo configurada: ambiente equilibrado + luminária central!" << std::endl;
+}
+
 void Lighting::renderLightDebug() {
     // Renderizar posições das luzes para debug
     glDisable(GL_LIGHTING);
@@ -152,4 +186,47 @@ void Lighting::renderLightDebug() {
     glPopMatrix();
     
     glEnable(GL_LIGHTING);
-} 
+}
+
+void Lighting::setMaterial(float r, float g, float b, float specularR, float specularG, float specularB, float shininess) {
+    GLfloat materialDiffuse[] = {r, g, b, 1.0f};
+    GLfloat materialSpecular[] = {specularR, specularG, specularB, 1.0f};
+    GLfloat materialAmbient[] = {r * 0.3f, g * 0.3f, b * 0.3f, 1.0f};
+    GLfloat materialShininess = shininess;
+    
+    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, materialDiffuse);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, materialSpecular);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, materialAmbient);
+    glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, materialShininess);
+}
+
+void Lighting::setMaterial(Vector3 color, Vector3 specular, float shininess) {
+    setMaterial(color.x, color.y, color.z, specular.x, specular.y, specular.z, shininess);
+}
+
+// Materiais pré-definidos para facilitar uso e garantir consistência
+
+void Lighting::setPlayerMaterial(float r, float g, float b, float intensity) {
+    // Material para jogador: altamente reflexivo e brilhante
+    setMaterial(r, g, b, intensity, intensity, intensity, 128.0f);
+}
+
+void Lighting::setObstacleMaterial(float r, float g, float b, bool isMetallic) {
+    if (isMetallic) {
+        // Material metálico: reflexão moderada com especular colorido
+        setMaterial(r, g, b, r * 0.8f, g * 0.8f, b * 0.8f, 64.0f);
+    } else {
+        // Material não metálico: reflexão baixa, especular neutro
+        setMaterial(r, g, b, 0.3f, 0.3f, 0.3f, 16.0f);
+    }
+}
+
+void Lighting::setFloorMaterial(float r, float g, float b) {
+    // Material para superfícies: moderadamente reflexivo
+    setMaterial(r, g, b, 0.6f, 0.6f, 0.7f, 32.0f);
+}
+
+void Lighting::setEnergyMaterial(float r, float g, float b, float glow) {
+    // Material para elementos energéticos: altamente emissor
+    setMaterial(r, g, b, glow, glow, glow, 256.0f);
+}

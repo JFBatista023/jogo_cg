@@ -1,4 +1,5 @@
 #include "Player.h"
+#include "../lighting/Lighting.h"
 #include <cmath>
 
 // Definição das constantes
@@ -8,11 +9,15 @@ const float Player::GRAVITY = -30.0f;
 const float Player::GROUND_Y = 0.5f;
 const float Player::SLIDE_DURATION = 0.8f;
 const float Player::SLIDE_HEIGHT = 0.3f;
+const float Player::LANE_TRANSITION_SPEED = 8.0f;
 
 Player::Player() {
     position = Vector3(0.0f, GROUND_Y, 0.0f);
     velocity = Vector3(0.0f, 0.0f, 0.0f);
     currentLane = 1; // Começa no centro
+    targetLane = 1;  // Inicialmente igual ao current
+    laneTransitionTime = 0.0f;
+    laneTransitionSpeed = LANE_TRANSITION_SPEED;
     isJumping = false;
     isSliding = false;
     jumpTime = 0.0f;
@@ -25,9 +30,33 @@ Player::~Player() {
 }
 
 void Player::update(float deltaTime) {
-    // Atualizar posição X baseada na faixa atual
-    float targetX = (currentLane - 1) * LANE_WIDTH;
-    position.x = targetX;
+    // Atualizar transição suave entre faixas com interpolação suave
+    if (currentLane != targetLane) {
+        laneTransitionTime += deltaTime;
+        
+        float currentX = (currentLane - 1) * LANE_WIDTH;
+        float targetX = (targetLane - 1) * LANE_WIDTH;
+        
+        // Usar interpolação suave (smoothstep) para transição mais natural
+        float transitionDuration = 1.0f / laneTransitionSpeed;
+        float t = laneTransitionTime / transitionDuration;
+        
+        if (t >= 1.0f) {
+            // Transição completa
+            position.x = targetX;
+            currentLane = targetLane;
+            laneTransitionTime = 0.0f;
+        } else {
+            // Aplicar curva de suavização (smoothstep)
+            float smoothT = t * t * (3.0f - 2.0f * t);
+            position.x = currentX + (targetX - currentX) * smoothT;
+        }
+    } else {
+        // Garantir que está exatamente na posição da faixa quando não está em transição
+        float targetX = (currentLane - 1) * LANE_WIDTH;
+        position.x = targetX;
+        laneTransitionTime = 0.0f;
+    }
     
     // Atualizar física do pulo
     if (isJumping) {
@@ -79,8 +108,8 @@ void Player::render() {
         scaleZ *= 1.2f;  // Um pouco mais longo
     }
     
-    // Cor do jogador (azul ciano brilhante)
-    glColor3f(0.0f, 0.8f, 1.0f);
+    // Material do jogador (azul ciano brilhante) - usando função utilitária
+    Lighting::setPlayerMaterial(0.0f, 0.8f, 1.0f, 0.8f);
     
     // Renderizar cubo principal
     glPushMatrix();
@@ -88,19 +117,22 @@ void Player::render() {
     glutSolidCube(1.0f);
     glPopMatrix();
     
-    // Efeito de brilho interno
-    glColor3f(0.5f, 1.0f, 1.0f);
+    // Efeito de brilho interno - material energético mais brilhante
+    Lighting::setEnergyMaterial(0.5f, 1.0f, 1.0f, 1.5f);
     glPushMatrix();
     glScalef(scaleX * 0.8f, scaleY * 0.8f, scaleZ * 0.8f);
     glutSolidCube(1.0f);
     glPopMatrix();
     
-    // Núcleo brilhante
-    glColor3f(1.0f, 1.0f, 1.0f);
+    // Núcleo brilhante - material energético muito brilhante
+    Lighting::setEnergyMaterial(1.0f, 1.0f, 1.0f, 3.0f);
     glPushMatrix();
     glScalef(scaleX * 0.3f, scaleY * 0.3f, scaleZ * 0.3f);
     glutSolidCube(1.0f);
     glPopMatrix();
+    
+    // Desabilitar iluminação para contorno e efeitos
+    glDisable(GL_LIGHTING);
     
     // Contorno dourado
     glColor3f(1.0f, 0.8f, 0.0f);
@@ -124,6 +156,9 @@ void Player::render() {
         glEnd();
     }
     
+    // Reabilitar iluminação
+    glEnable(GL_LIGHTING);
+    
     glPopMatrix();
 }
 
@@ -143,14 +178,14 @@ void Player::slide() {
 }
 
 void Player::moveLeft() {
-    if (currentLane > 0) {
-        currentLane--;
+    if (targetLane > 0) {
+        targetLane--;
     }
 }
 
 void Player::moveRight() {
-    if (currentLane < 2) {
-        currentLane++;
+    if (targetLane < 2) {
+        targetLane++;
     }
 }
 
@@ -186,6 +221,8 @@ void Player::reset() {
     position = Vector3(0.0f, GROUND_Y, 0.0f);
     velocity = Vector3(0.0f, 0.0f, 0.0f);
     currentLane = 1;
+    targetLane = 1;
+    laneTransitionTime = 0.0f;
     isJumping = false;
     isSliding = false;
     jumpTime = 0.0f;

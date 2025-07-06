@@ -1,4 +1,5 @@
 #include "Scene.h"
+#include "../lighting/Lighting.h"
 #include <cstdlib>
 #include <ctime>
 
@@ -89,8 +90,8 @@ void Scene::renderFloor() {
         glPushMatrix();
         glTranslatef(section.position.x, section.position.y, section.position.z);
         
-        // Cor do chão mais vibrante (azul metálico)
-        glColor3f(0.3f, 0.5f, 0.7f);
+        // Material do chão espacial - azul metálico reflexivo
+        Lighting::setFloorMaterial(0.3f, 0.5f, 0.7f);
         
         // Renderizar seção do chão
         glPushMatrix();
@@ -98,14 +99,15 @@ void Scene::renderFloor() {
         glutSolidCube(1.0f);
         glPopMatrix();
         
-        // Contorno do chão
-        glColor3f(0.1f, 0.3f, 0.5f);
+        // Contorno do chão com material mais escuro
+        Lighting::setFloorMaterial(0.1f, 0.3f, 0.5f);
         glPushMatrix();
         glScalef(section.size.x, section.size.y, section.size.z);
         glutWireCube(1.0f);
         glPopMatrix();
         
-        // Linhas das faixas mais brilhantes
+        // Linhas das faixas (efeitos especiais sem iluminação)
+        glDisable(GL_LIGHTING);
         glColor3f(0.0f, 1.0f, 1.0f);
         glLineWidth(3.0f);
         glBegin(GL_LINES);
@@ -125,6 +127,7 @@ void Scene::renderFloor() {
         glVertex3f(0.0f, section.size.y/2 + 0.01f, -section.size.z/2);
         glVertex3f(0.0f, section.size.y/2 + 0.01f, section.size.z/2);
         glEnd();
+        glEnable(GL_LIGHTING);
         
         glPopMatrix();
     }

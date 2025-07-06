@@ -9,6 +9,9 @@ private:
     Vector3 position;
     Vector3 velocity;
     int currentLane;        // 0 = esquerda, 1 = centro, 2 = direita
+    int targetLane;         // Faixa para onde está se movendo
+    float laneTransitionTime;
+    float laneTransitionSpeed;
     bool isJumping;
     bool isSliding;
     float jumpTime;
@@ -23,6 +26,7 @@ private:
     static const float GROUND_Y;
     static const float SLIDE_DURATION;
     static const float SLIDE_HEIGHT;
+    static const float LANE_TRANSITION_SPEED;
     
 public:
     Player();
