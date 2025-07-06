@@ -1,28 +1,28 @@
 #ifndef AUDIO_H
 #define AUDIO_H
 
-#include <fmod.hpp>
 #include <string>
 #include <thread>
 #include <atomic>
+#include <vector>
+
+#ifdef _WIN32
+    #include <windows.h>
+    #include <mmsystem.h>
+    // Note: -lwinmm is specified in Makefile instead of pragma comment
+#endif
 
 class Audio {
 private:
-    FMOD::System* system;
-    FMOD::Channel* musicChannel;
-    FMOD::Sound* fasterThanLight;
-    FMOD::Sound* mistyEffect;
+#ifdef _WIN32
+    std::string currentMusicFile;
+    bool musicPlaying;
+    std::thread musicThread;
+    std::atomic<bool> shouldStopMusic;
+#endif
+    
     std::string currentMusic;
     bool isInitialized;
-    
-    // Fallback para mpg123
-    bool useMpg123Fallback;
-    std::thread mpg123Thread;
-    std::atomic<bool> shouldStopMpg123;
-    std::atomic<bool> mpg123Playing;
-    
-    void playWithMpg123(const std::string& filename, bool loop = true);
-    void stopMpg123();
     
 public:
     Audio();
@@ -40,6 +40,12 @@ public:
     bool isMusicPlaying();
     std::string getCurrentMusic();
     bool isAudioWorking();
+    
+#ifdef _WIN32
+private:
+    void playMusicWindows(const std::string& filename, bool loop = true);
+    void stopMusicWindows();
+#endif
 };
 
-#endif // AUDIO_H 
+#endif // AUDIO_H

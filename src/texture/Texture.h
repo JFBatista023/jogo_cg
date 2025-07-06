@@ -7,34 +7,34 @@
 
 class Texture {
 private:
-    static std::map<std::string, GLuint> textureMap;
+    static std::map<std::string, GLuint> textures;
+    static bool initialized;
+    
+    // Função auxiliar para carregar imagem BMP
+    static unsigned char* loadBMP(const std::string& filename, int& width, int& height);
     
 public:
-    // Inicialização e limpeza
-    static void init();
+    static bool init();
     static void cleanup();
     
-    // Carregamento de texturas (preparado para futura implementação)
-    static GLuint loadTexture(const std::string& filename);
+    // Carregar textura de arquivo
+    static GLuint loadTexture(const std::string& name, const std::string& filename);
+    
+    // Criar texturas procedurais
+    static GLuint createGalaxyTexture(const std::string& name, int width = 512, int height = 512);
+    static GLuint createStarFieldTexture(const std::string& name, int width = 512, int height = 512);
+    static GLuint createNebulaTexture(const std::string& name, int width = 512, int height = 512);
+    
+    // Obter textura carregada
     static GLuint getTexture(const std::string& name);
     
-    // Aplicação de texturas
-    static void bindTexture(GLuint textureId);
-    static void unbindTexture();
+    // Bind textura
+    static void bind(const std::string& name);
+    static void bind(GLuint textureId);
+    static void unbind();
     
-    // Configuração de materiais
-    static void setMaterial(float r, float g, float b, float alpha = 1.0f);
-    static void setMaterialAmbient(float r, float g, float b);
-    static void setMaterialDiffuse(float r, float g, float b);
-    static void setMaterialSpecular(float r, float g, float b, float shininess);
-    
-    // Utilidades
-    static void enableTexturing();
-    static void disableTexturing();
-    
-private:
-    // Placeholder para carregamento de imagens (SOIL/stb_image)
-    static unsigned char* loadImageData(const std::string& filename, int& width, int& height, int& channels);
+    // Verificar se textura existe
+    static bool exists(const std::string& name);
 };
 
-#endif 
+#endif // TEXTURE_H

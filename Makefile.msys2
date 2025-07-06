@@ -1,15 +1,15 @@
-# Makefile para Cosmic Dash - MSYS2/Windows
+# Makefile para Cosmic Dash - Windows MSYS2/MinGW
 # Jogo 3D Endless Runner em OpenGL/GLUT
 
-# Compilador e flags para MSYS2
+# Compilador e flags
 CXX = g++
-CXXFLAGS = -std=c++11 -Wall -Wextra -O2
+CXXFLAGS = -std=c++11 -Wall -Wextra -O2 -DWINDOWS_AUDIO
 INCLUDES = -I./src
 
-# Bibliotecas para Windows/MSYS2
-LIBS = -lopengl32 -lglu32 -lfreeglut -static-libgcc -static-libstdc++
+# Bibliotecas para Windows
+LIBS = -lopengl32 -lglu32 -lfreeglut -lwinmm -static-libgcc -static-libstdc++
 
-# Arquivos fonte
+# Arquivos fonte (incluindo Audio.cpp)
 SOURCES = main.cpp \
           src/player/Player.cpp \
           src/obstacle/Obstacle.cpp \
@@ -18,16 +18,18 @@ SOURCES = main.cpp \
           src/score/Score.cpp \
           src/menu/Menu.cpp \
           src/texture/Texture.cpp \
-          src/lighting/Lighting.cpp
+          src/lighting/Lighting.cpp \
+          src/audio/Audio.cpp
 
 # Arquivos objeto
 OBJECTS = $(SOURCES:.cpp=.o)
 
-# Nome do executável (com .exe para Windows)
+# Nome do executável
 TARGET = cosmic_dash.exe
+TEST_AUDIO = test_audio.exe
 
 # Regra principal
-all: $(TARGET)
+all: check-audio $(TARGET)
 
 $(TARGET): $(OBJECTS)
 	$(CXX) $(OBJECTS) -o $(TARGET) $(LIBS)
@@ -38,22 +40,68 @@ $(TARGET): $(OBJECTS)
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
+# Teste de áudio
+$(TEST_AUDIO): test_audio.cpp
+	$(CXX) $(CXXFLAGS) test_audio.cpp -o $(TEST_AUDIO)
+
+test-audio: $(TEST_AUDIO)
+	./$(TEST_AUDIO)
+
+# Verificar bibliotecas de áudio disponíveis
+check-audio:
+	@echo "=== Verificando bibliotecas de áudio (Windows) ==="
+	@echo "✓ Windows Multimedia API (winmm) disponível"
+	@echo "✓ OpenGL (opengl32) disponível"
+	@echo "✓ GLU (glu32) disponível"
+	@if [ -f "/mingw64/include/GL/freeglut.h" ] || [ -f "/mingw32/include/GL/freeglut.h" ]; then \
+		echo "✓ FreeGLUT encontrado"; \
+	else \
+		echo "✗ FreeGLUT não encontrado"; \
+	fi
+	@echo "====================================="
+
+# Verificar arquivos de música
+check-music:
+	@echo "=== Verificando arquivos de música ==="
+	@if [ -f "src/sounds/faster_than_light.wav" ]; then \
+		echo "✓ Música do menu: src/sounds/faster_than_light.wav"; \
+	else \
+		echo "✗ Música do menu: src/sounds/faster_than_light.wav (FALTANDO)"; \
+	fi
+	@if [ -f "src/sounds/misty_effect.wav" ]; then \
+		echo "✓ Música do jogo: src/sounds/misty_effect.wav"; \
+	else \
+		echo "✗ Música do jogo: src/sounds/misty_effect.wav (FALTANDO)"; \
+	fi
+	@echo "======================================"
+
+# Criar diretório de sons se não existir
+create-sounds-dir:
+	@if [ ! -d "src/sounds" ]; then \
+		echo "Criando diretório src/sounds/..."; \
+		mkdir -p src/sounds; \
+	fi
+
 # Limpeza
 clean:
-	rm -f $(OBJECTS) $(TARGET)
+	rm -f $(OBJECTS) $(TARGET) $(TEST_AUDIO)
 	@echo "Arquivos limpos!"
 
 # Executar o jogo
 run: $(TARGET)
 	./$(TARGET)
 
+# Executar com verificação de música
+run-with-check: check-music $(TARGET)
+	./$(TARGET)
+
 # Instalar dependências (MSYS2)
 install-deps:
-	@echo "Para instalar dependências no MSYS2, execute:"
-	@echo "pacman -S mingw-w64-x86_64-gcc"
-	@echo "pacman -S mingw-w64-x86_64-make"
-	@echo "pacman -S mingw-w64-x86_64-freeglut"
-	@echo "pacman -S mingw-w64-x86_64-mesa"
+	@echo "Instalando dependências via pacman (MSYS2)..."
+	pacman -S mingw-w64-x86_64-gcc
+	pacman -S mingw-w64-x86_64-freeglut
+	pacman -S mingw-w64-x86_64-pkg-config
+	@echo "Dependências instaladas!"
 
 # Debug build
 debug: CXXFLAGS += -g -DDEBUG
@@ -63,31 +111,70 @@ debug: $(TARGET)
 release: CXXFLAGS += -O3 -DNDEBUG
 release: clean $(TARGET)
 
-# Verificar dependências para MSYS2
+# Verificar dependências
 check-deps:
-	@echo "Verificando dependências no MSYS2..."
-	@which g++ > /dev/null || echo "g++ não encontrado! Execute: pacman -S mingw-w64-x86_64-gcc"
-	@which make > /dev/null || echo "make não encontrado! Execute: pacman -S make"
+	@echo "Verificando dependências para Windows..."
+	@echo "Sistema: Windows (MSYS2/MinGW)"
+	@if [ -f "/mingw64/lib/libopengl32.a" ] || [ -f "/mingw32/lib/libopengl32.a" ]; then \
+		echo "✓ OpenGL disponível"; \
+	else \
+		echo "✗ OpenGL não encontrado"; \
+	fi
+	@if [ -f "/mingw64/lib/libglu32.a" ] || [ -f "/mingw32/lib/libglu32.a" ]; then \
+		echo "✓ GLU disponível"; \
+	else \
+		echo "✗ GLU não encontrado"; \
+	fi
+	@if [ -f "/mingw64/lib/libfreeglut.a" ] || [ -f "/mingw32/lib/libfreeglut.a" ]; then \
+		echo "✓ FreeGLUT disponível"; \
+	else \
+		echo "✗ FreeGLUT não encontrado"; \
+	fi
 	@echo "Verificação concluída."
 
-# Build estático (recomendado para distribuição)
-static: LIBS += -static
-static: $(TARGET)
+# Listar arquivos que serão compilados
+list-sources:
+	@echo "Arquivos fonte:"
+	@for src in $(SOURCES); do echo "  $$src"; done
+	@echo ""
+	@echo "Arquivos objeto:"
+	@for obj in $(OBJECTS); do echo "  $$obj"; done
+
+# Compilar apenas um arquivo específico para debug
+compile-audio:
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c src/audio/Audio.cpp -o src/audio/Audio.o
+	@echo "Audio.cpp compilado com sucesso!"
+
+# Verificar se todos os arquivos fonte existem
+check-sources:
+	@echo "Verificando arquivos fonte..."
+	@for src in $(SOURCES); do \
+		if [ -f "$$src" ]; then \
+			echo "✓ $$src"; \
+		else \
+			echo "✗ $$src (AUSENTE!)"; \
+		fi; \
+	done
 
 # Ajuda
 help:
-	@echo "Cosmic Dash - Makefile para MSYS2/Windows"
-	@echo "==========================================="
+	@echo "Cosmic Dash - Makefile para Windows (MSYS2)"
+	@echo "============================================"
 	@echo "Comandos disponíveis:"
-	@echo "  make -f Makefile.msys2        - Compilar o jogo"
-	@echo "  make -f Makefile.msys2 run    - Compilar e executar"
-	@echo "  make -f Makefile.msys2 clean  - Limpar arquivos compilados"
-	@echo "  make -f Makefile.msys2 debug  - Compilar versão debug"
-	@echo "  make -f Makefile.msys2 release - Compilar versão otimizada"
-	@echo "  make -f Makefile.msys2 static - Compilar versão estática"
-	@echo "  make -f Makefile.msys2 install-deps - Mostrar comandos de instalação"
-	@echo "  make -f Makefile.msys2 check-deps   - Verificar dependências"
-	@echo "  make -f Makefile.msys2 help   - Mostrar esta ajuda"
+	@echo "  make               - Compilar o jogo"
+	@echo "  make run           - Compilar e executar"
+	@echo "  make run-with-check- Verificar música e executar"
+	@echo "  make test-audio    - Testar arquivos de áudio"
+	@echo "  make check-music   - Verificar arquivos de música"
+	@echo "  make create-sounds-dir - Criar diretório de sons"
+	@echo "  make clean         - Limpar arquivos compilados"
+	@echo "  make debug         - Compilar versão debug"
+	@echo "  make release       - Compilar versão otimizada"
+	@echo "  make install-deps  - Instalar dependências (MSYS2)"
+	@echo "  make check-audio   - Verificar bibliotecas de áudio"
+	@echo "  make check-deps    - Verificar dependências"
+	@echo "  make check-sources - Verificar se arquivos fonte existem"
+	@echo "  make list-sources  - Listar arquivos fonte"
+	@echo "  make compile-audio - Compilar apenas Audio.cpp"
 
-# Evitar conflitos com arquivos de mesmo nome
-.PHONY: all clean run install-deps debug release static check-deps help
+.PHONY: all clean run run-with-check test-audio install-deps debug release check-deps check-audio check-music create-sounds-dir help list-sources check-sources compile-audio

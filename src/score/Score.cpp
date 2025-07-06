@@ -1,35 +1,53 @@
 #include "Score.h"
-#include <sstream>
-#include <fstream>
+#include <GL/glut.h>
 #include <iostream>
+#include <sstream>
+#include <iomanip>
+#include <cmath>
 
 Score::Score() {
     currentScore = 0;
     highScore = 0;
     gameTime = 0.0f;
-    gameActive = false;
-    loadHighScore();
+    isGameActive = false;
 }
 
 Score::~Score() {
-    saveHighScore();
+}
+
+void Score::startGame() {
+    currentScore = 0;
+    gameTime = 0.0f;
+    isGameActive = true;
 }
 
 void Score::update(float deltaTime) {
-    if (gameActive) {
+    if (isGameActive) {
         gameTime += deltaTime;
         // Pontuação baseada no tempo (10 pontos por segundo)
-        currentScore = (int)(gameTime * 10);
+        currentScore = (int)(gameTime * 10.0f);
+    }
+}
+
+void Score::addPoints(int points) {
+    if (isGameActive) {
+        currentScore += points;
+    }
+}
+
+void Score::gameOver() {
+    isGameActive = false;
+    if (currentScore > highScore) {
+        highScore = currentScore;
     }
 }
 
 void Score::render() {
-    if (gameActive) {
-        renderHUD();
-    }
-}
-
-void Score::renderHUD() {
+    if (!isGameActive) return;
+    
+    // Salvar estado atual do OpenGL
+    glPushAttrib(GL_ALL_ATTRIB_BITS);
+    
     // Configurar para renderização 2D
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
@@ -40,85 +58,74 @@ void Score::renderHUD() {
     glPushMatrix();
     glLoadIdentity();
     
+    // Desabilitar teste de profundidade para HUD
     glDisable(GL_DEPTH_TEST);
+    glDisable(GL_LIGHTING);
+    glDisable(GL_TEXTURE_2D);
     
-    // Fundo SÓLIDO e BRANCO para máxima visibilidade
-    glColor3f(1.0f, 1.0f, 1.0f);
+    // Habilitar blending para transparência
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    // Renderizar fundo semi-transparente para a pontuação
+    float hudWidth = 200.0f;
+    float hudHeight = 80.0f;
+    float hudX = 10.0f;
+    float hudY = 600.0f - hudHeight - 10.0f; // Canto superior esquerdo
+    
+    // Fundo escuro semi-transparente
+    glColor4f(0.0f, 0.0f, 0.0f, 0.7f);
     glBegin(GL_QUADS);
-    glVertex2f(10, 500);
-    glVertex2f(400, 500);
-    glVertex2f(400, 580);
-    glVertex2f(10, 580);
+        glVertex2f(hudX, hudY);
+        glVertex2f(hudX + hudWidth, hudY);
+        glVertex2f(hudX + hudWidth, hudY + hudHeight);
+        glVertex2f(hudX, hudY + hudHeight);
     glEnd();
     
-    // Borda preta grossa para contraste
-    glColor3f(0.0f, 0.0f, 0.0f);
-    glLineWidth(4.0f);
+    // Borda clara
+    glColor4f(0.0f, 0.8f, 1.0f, 1.0f); // Azul ciano
+    glLineWidth(2.0f);
     glBegin(GL_LINE_LOOP);
-    glVertex2f(10, 500);
-    glVertex2f(400, 500);
-    glVertex2f(400, 580);
-    glVertex2f(10, 580);
+        glVertex2f(hudX, hudY);
+        glVertex2f(hudX + hudWidth, hudY);
+        glVertex2f(hudX + hudWidth, hudY + hudHeight);
+        glVertex2f(hudX, hudY + hudHeight);
     glEnd();
     
-    // Renderizar pontuação atual com sombra
-    std::stringstream ss;
-    ss << "Pontuacao: " << currentScore;
-    glColor3f(0.0f, 0.0f, 0.0f); // sombra
-    renderText(21, 559, ss.str());
-    glColor3f(0.1f, 0.1f, 0.1f); // cinza escuro (melhor que preto puro)
-    renderText(20, 560, ss.str());
+    // Renderizar texto da pontuação
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f); // Branco
     
-    // Renderizar high score com sombra
-    ss.str("");
-    ss << "Recorde: " << highScore;
-    glColor3f(0.0f, 0.0f, 0.0f); // sombra
-    renderText(21, 539, ss.str());
-    glColor3f(0.0f, 0.0f, 0.8f); // azul escuro
-    renderText(20, 540, ss.str());
+    // Pontuação atual
+    std::stringstream scoreText;
+    scoreText << "Pontos: " << currentScore;
+    renderText(hudX + 10, hudY + 50, scoreText.str(), GLUT_BITMAP_HELVETICA_18);
     
-    // Renderizar tempo com sombra
-    ss.str("");
-    ss << "Tempo: " << (int)gameTime << "s";
-    glColor3f(0.0f, 0.0f, 0.0f); // sombra
-    renderText(21, 519, ss.str());
-    glColor3f(0.8f, 0.0f, 0.0f); // vermelho escuro
-    renderText(20, 520, ss.str());
+    // Tempo de jogo
+    std::stringstream timeText;
+    timeText << "Tempo: " << std::fixed << std::setprecision(1) << gameTime << "s";
+    renderText(hudX + 10, hudY + 25, timeText.str(), GLUT_BITMAP_HELVETICA_12);
     
-    // Fundo BRANCO para instruções
-    glColor3f(1.0f, 1.0f, 1.0f);
-    glBegin(GL_QUADS);
-    glVertex2f(10, 10);
-    glVertex2f(790, 10);
-    glVertex2f(790, 50);
-    glVertex2f(10, 50);
-    glEnd();
+    // Record
+    if (highScore > 0) {
+        std::stringstream recordText;
+        recordText << "Record: " << highScore;
+        renderText(hudX + 10, hudY + 5, recordText.str(), GLUT_BITMAP_HELVETICA_10);
+    }
     
-    // Borda preta das instruções
-    glColor3f(0.0f, 0.0f, 0.0f);
-    glLineWidth(3.0f);
-    glBegin(GL_LINE_LOOP);
-    glVertex2f(10, 10);
-    glVertex2f(790, 10);
-    glVertex2f(790, 50);
-    glVertex2f(10, 50);
-    glEnd();
-    
-    // Instruções com sombra no fundo branco
-    glColor3f(0.0f, 0.0f, 0.0f); // sombra
-    renderText(21, 29, "Setas: Mover | Espaco: Pular | ESC: Menu");
-    glColor3f(0.1f, 0.1f, 0.1f); // cinza escuro
-    renderText(20, 30, "Setas: Mover | Espaco: Pular | ESC: Menu");
-    
-    glEnable(GL_DEPTH_TEST);
-    
+    // Restaurar matrizes
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
+    
+    // Restaurar estado do OpenGL
+    glPopAttrib();
 }
 
 void Score::renderGameOverScreen() {
+    // Salvar estado atual do OpenGL
+    glPushAttrib(GL_ALL_ATTRIB_BITS);
+    
     // Configurar para renderização 2D
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
@@ -129,95 +136,107 @@ void Score::renderGameOverScreen() {
     glPushMatrix();
     glLoadIdentity();
     
+    // Desabilitar teste de profundidade e iluminação
     glDisable(GL_DEPTH_TEST);
+    glDisable(GL_LIGHTING);
+    glDisable(GL_TEXTURE_2D);
     
-    // Fundo semi-transparente
-    glColor4f(0.0f, 0.0f, 0.0f, 0.7f);
+    // Habilitar blending
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    // Overlay escuro semi-transparente sobre toda a tela
+    glColor4f(0.0f, 0.0f, 0.0f, 0.8f);
     glBegin(GL_QUADS);
-    glVertex2f(0, 0);
-    glVertex2f(800, 0);
-    glVertex2f(800, 600);
-    glVertex2f(0, 600);
+        glVertex2f(0, 0);
+        glVertex2f(800, 0);
+        glVertex2f(800, 600);
+        glVertex2f(0, 600);
     glEnd();
-    glDisable(GL_BLEND);
     
-    // Título com efeito
-    glColor3f(0.0f, 0.0f, 0.0f);
-    renderTextCentered(398, "GAME OVER", GLUT_BITMAP_TIMES_ROMAN_24);
-    renderTextCentered(402, "GAME OVER", GLUT_BITMAP_TIMES_ROMAN_24);
-    glColor3f(1.0f, 0.0f, 0.0f);
-    renderTextCentered(400, "GAME OVER", GLUT_BITMAP_TIMES_ROMAN_24);
-    glColor3f(1.0f, 0.5f, 0.5f);
-    renderTextCentered(401, "GAME OVER", GLUT_BITMAP_TIMES_ROMAN_24);
+    // Painel central para o Game Over
+    float panelWidth = 400.0f;
+    float panelHeight = 300.0f;
+    float panelX = (800.0f - panelWidth) / 2.0f;
+    float panelY = (600.0f - panelHeight) / 2.0f;
     
-    // Pontuação final com sombra
-    std::stringstream ss;
-    ss << "Pontuacao Final: " << currentScore;
-    glColor3f(0.0f, 0.0f, 0.0f);
-    renderTextCentered(349, ss.str());
-    glColor3f(0.0f, 1.0f, 1.0f);
-    renderTextCentered(350, ss.str());
+    // Fundo do painel - gradiente sutil
+    glBegin(GL_QUADS);
+        // Topo - azul escuro
+        glColor4f(0.1f, 0.1f, 0.3f, 0.95f);
+        glVertex2f(panelX, panelY + panelHeight);
+        glVertex2f(panelX + panelWidth, panelY + panelHeight);
+        // Base - azul muito escuro
+        glColor4f(0.05f, 0.05f, 0.15f, 0.95f);
+        glVertex2f(panelX + panelWidth, panelY);
+        glVertex2f(panelX, panelY);
+    glEnd();
     
-    // Novo recorde?
-    if (currentScore > highScore) {
-        glColor3f(0.0f, 0.0f, 0.0f);
-        renderTextCentered(319, "NOVO RECORDE!");
-        glColor3f(1.0f, 1.0f, 0.0f);
-        renderTextCentered(320, "NOVO RECORDE!");
-        glColor3f(1.0f, 0.8f, 0.0f);
-        renderTextCentered(321, "NOVO RECORDE!");
+    // Borda do painel
+    glColor4f(0.0f, 0.8f, 1.0f, 1.0f); // Azul ciano
+    glLineWidth(3.0f);
+    glBegin(GL_LINE_LOOP);
+        glVertex2f(panelX, panelY);
+        glVertex2f(panelX + panelWidth, panelY);
+        glVertex2f(panelX + panelWidth, panelY + panelHeight);
+        glVertex2f(panelX, panelY + panelHeight);
+    glEnd();
+    
+    // Título "GAME OVER"
+    glColor4f(1.0f, 0.2f, 0.2f, 1.0f); // Vermelho
+    renderTextCentered(panelY + panelHeight - 50, "GAME OVER", GLUT_BITMAP_TIMES_ROMAN_24);
+    
+    // Linha separadora
+    glColor4f(0.0f, 0.8f, 1.0f, 0.8f);
+    glLineWidth(2.0f);
+    glBegin(GL_LINES);
+        glVertex2f(panelX + 20, panelY + panelHeight - 80);
+        glVertex2f(panelX + panelWidth - 20, panelY + panelHeight - 80);
+    glEnd();
+    
+    // Pontuação final
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f); // Branco
+    std::stringstream finalScoreText;
+    finalScoreText << "Pontuacao Final: " << currentScore;
+    renderTextCentered(panelY + panelHeight - 120, finalScoreText.str(), GLUT_BITMAP_HELVETICA_18);
+    
+    // Tempo total
+    std::stringstream finalTimeText;
+    finalTimeText << "Tempo Total: " << std::fixed << std::setprecision(1) << gameTime << " segundos";
+    renderTextCentered(panelY + panelHeight - 150, finalTimeText.str(), GLUT_BITMAP_HELVETICA_12);
+    
+    // Novo record?
+    if (currentScore >= highScore && currentScore > 0) {
+        glColor4f(1.0f, 1.0f, 0.0f, 1.0f); // Amarelo
+        renderTextCentered(panelY + panelHeight - 180, "NOVO RECORD!", GLUT_BITMAP_HELVETICA_18);
+    } else if (highScore > 0) {
+        glColor4f(0.8f, 0.8f, 0.8f, 1.0f); // Cinza claro
+        std::stringstream recordText;
+        recordText << "Melhor Pontuacao: " << highScore;
+        renderTextCentered(panelY + panelHeight - 180, recordText.str(), GLUT_BITMAP_HELVETICA_12);
     }
     
-    // High score com sombra
-    ss.str("");
-    ss << "Recorde: " << highScore;
-    glColor3f(0.0f, 0.0f, 0.0f);
-    renderTextCentered(279, ss.str());
-    glColor3f(1.0f, 1.0f, 0.0f);
-    renderTextCentered(280, ss.str());
+    // Instruções
+    glColor4f(0.7f, 0.7f, 1.0f, 1.0f); // Azul claro
+    renderTextCentered(panelY + 80, "Pressione 'R' para jogar novamente", GLUT_BITMAP_HELVETICA_12);
+    renderTextCentered(panelY + 60, "Pressione 'ESC' para voltar ao menu", GLUT_BITMAP_HELVETICA_12);
     
-    // Instruções com sombra
-    glColor3f(0.0f, 0.0f, 0.0f);
-    renderTextCentered(199, "Pressione R para jogar novamente");
-    renderTextCentered(169, "Pressione ESC para o menu");
-    glColor3f(1.0f, 1.0f, 1.0f);
-    renderTextCentered(200, "Pressione R para jogar novamente");
-    renderTextCentered(170, "Pressione ESC para o menu");
+    // Efeito de brilho no título (animação simples)
+    static float glowTime = 0.0f;
+    glowTime += 0.05f;
+    float glowIntensity = 0.5f + 0.3f * std::sin(glowTime);
     
-    glEnable(GL_DEPTH_TEST);
+    glColor4f(1.0f, 0.4f, 0.4f, glowIntensity);
+    renderTextCentered(panelY + panelHeight - 48, "GAME OVER", GLUT_BITMAP_TIMES_ROMAN_24);
     
+    // Restaurar matrizes
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
-}
-
-void Score::renderMenuScreen() {
-    // Implementado no Menu.cpp
-}
-
-void Score::addScore(int points) {
-    currentScore += points;
-}
-
-void Score::resetScore() {
-    currentScore = 0;
-    gameTime = 0.0f;
-}
-
-void Score::gameOver() {
-    gameActive = false;
-    if (currentScore > highScore) {
-        highScore = currentScore;
-        saveHighScore();
-    }
-}
-
-void Score::startGame() {
-    gameActive = true;
-    resetScore();
+    
+    // Restaurar estado do OpenGL
+    glPopAttrib();
 }
 
 void Score::renderText(float x, float y, const std::string& text, void* font) {
@@ -228,31 +247,29 @@ void Score::renderText(float x, float y, const std::string& text, void* font) {
 }
 
 void Score::renderTextCentered(float y, const std::string& text, void* font) {
-    int width = getTextWidth(text, font);
-    float x = (800 - width) / 2.0f;
+    // Calcular largura do texto
+    int textWidth = 0;
+    for (char c : text) {
+        textWidth += glutBitmapWidth(font, c);
+    }
+    
+    // Centralizar horizontalmente
+    float x = (800.0f - textWidth) / 2.0f;
     renderText(x, y, text, font);
 }
 
-void Score::loadHighScore() {
-    std::ifstream file("highscore.txt");
-    if (file.is_open()) {
-        file >> highScore;
-        file.close();
-    }
+int Score::getCurrentScore() const {
+    return currentScore;
 }
 
-void Score::saveHighScore() {
-    std::ofstream file("highscore.txt");
-    if (file.is_open()) {
-        file << highScore;
-        file.close();
-    }
+int Score::getHighScore() const {
+    return highScore;
 }
 
-int Score::getTextWidth(const std::string& text, void* font) {
-    int width = 0;
-    for (char c : text) {
-        width += glutBitmapWidth(font, c);
-    }
-    return width;
-} 
+float Score::getGameTime() const {
+    return gameTime;
+}
+
+bool Score::isActive() const {
+    return isGameActive;
+}

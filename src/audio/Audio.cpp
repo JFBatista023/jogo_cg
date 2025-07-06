@@ -1,12 +1,20 @@
 #include "Audio.h"
 #include <iostream>
-#include <cstdlib>
-#include <unistd.h>
+#include <fstream>
+#include <vector>
 
-Audio::Audio() : system(nullptr), musicChannel(nullptr), 
-                 fasterThanLight(nullptr), mistyEffect(nullptr),
-                 currentMusic(""), isInitialized(false),
-                 useMpg123Fallback(false), shouldStopMpg123(false), mpg123Playing(false) {
+#ifdef _WIN32
+    #include <windows.h>
+    #include <mmsystem.h>
+    #include <thread>
+    #include <chrono>
+#endif
+
+Audio::Audio() : currentMusic(""), isInitialized(false) {
+#ifdef _WIN32
+    musicPlaying = false;
+    shouldStopMusic = false;
+#endif
 }
 
 Audio::~Audio() {
@@ -14,287 +22,185 @@ Audio::~Audio() {
 }
 
 bool Audio::initialize() {
-    FMOD_RESULT result;
+    std::cout << "=== INICIALIZANDO SISTEMA DE ÁUDIO WINDOWS ===" << std::endl;
     
-    // Criar sistema FMOD
-    result = FMOD::System_Create(&system);
-    if (result != FMOD_OK) {
-        std::cerr << "Erro ao criar sistema FMOD: " << result << std::endl;
-        return false;
-    }
-    
-    // Verificar se há drivers de áudio disponíveis ANTES de inicializar
-    int numDrivers;
-    result = system->getNumDrivers(&numDrivers);
-    if (result != FMOD_OK || numDrivers == 0) {
-        std::cout << "=== AVISO: SISTEMA DE ÁUDIO INDISPONÍVEL ===" << std::endl;
-        std::cout << "Nenhum driver de áudio foi encontrado." << std::endl;
-        std::cout << "O jogo continuará funcionando sem áudio." << std::endl;
-        
-        if (result == FMOD_OK && numDrivers == 0) {
-            std::cout << "\nPara habilitar áudio no WSL2:" << std::endl;
-            std::cout << "1. No Windows, execute: wsl --shutdown" << std::endl;
-            std::cout << "2. Execute: wsl --update" << std::endl;
-            std::cout << "3. Crie/edite o arquivo C:\\Users\\%USERNAME%\\.wslconfig:" << std::endl;
-            std::cout << "   [wsl2]" << std::endl;
-            std::cout << "   audio=true" << std::endl;
-            std::cout << "4. Reinicie o WSL" << std::endl;
-            std::cout << "\nAlternativamente, instale PulseAudio:" << std::endl;
-            std::cout << "   sudo apt update && sudo apt install pulseaudio" << std::endl;
-        }
-        std::cout << "=============================================" << std::endl;
-        
-        // Configurar sistema para modo NoSound para que tudo funcione
-        system->setOutput(FMOD_OUTPUTTYPE_NOSOUND);
-        result = system->init(32, FMOD_INIT_NORMAL, nullptr);
-        
-        if (result != FMOD_OK) {
-            std::cerr << "Erro crítico ao inicializar FMOD em modo silencioso: " << result << std::endl;
-            system->release();
-            system = nullptr;
-            isInitialized = false;
-            return true; // Ainda retorna true para o jogo continuar
-        }
-        
-        std::cout << "FMOD inicializado em modo silencioso" << std::endl;
-    } else {
-        // Tentar inicialização normal com áudio
-        std::cout << "FMOD encontrou " << numDrivers << " driver(s) de áudio" << std::endl;
-        
-        // Tentar diferentes outputs para WSL2/Linux com WSLg
-        result = FMOD_ERR_OUTPUT_INIT; // Começar assumindo falha
-        
-        // WSL2 com WSLg usa PulseAudio através do servidor do Windows
-        std::cout << "Detectado ambiente WSL2 - tentando PulseAudio..." << std::endl;
-        system->setOutput(FMOD_OUTPUTTYPE_PULSEAUDIO);
-        result = system->init(32, FMOD_INIT_NORMAL, nullptr);
-        
-        if (result != FMOD_OK) {
-            std::cout << "PulseAudio falhou (" << result << "), tentando ALSA..." << std::endl;
-            system->close();
-            system->setOutput(FMOD_OUTPUTTYPE_ALSA);
-            result = system->init(32, FMOD_INIT_NORMAL, nullptr);
-        }
-        
-        if (result != FMOD_OK) {
-            std::cout << "ALSA falhou (" << result << "), tentando configuração manual..." << std::endl;
-            system->close();
-            
-            // Tentar com configurações específicas para WSL2
-            system->setOutput(FMOD_OUTPUTTYPE_AUTODETECT);
-            result = system->init(32, FMOD_INIT_NORMAL, nullptr);
-        }
-        
-        if (result != FMOD_OK) {
-            std::cout << "Autodetect falhou (" << result << "), usando modo silencioso..." << std::endl;
-            system->close();
-            
-            // Última tentativa: modo NoSound para pelo menos o jogo funcionar
-            system->setOutput(FMOD_OUTPUTTYPE_NOSOUND);
-            result = system->init(32, FMOD_INIT_NORMAL, nullptr);
-            
-            if (result == FMOD_OK) {
-                std::cout << "AVISO: Funcionando em modo silencioso (sem áudio)" << std::endl;
-                std::cout << "Para habilitar áudio no WSL2:" << std::endl;
-                std::cout << "1. Certifique-se de que o WSLg está instalado" << std::endl;
-                std::cout << "2. Configure as variáveis de ambiente:" << std::endl;
-                std::cout << "   export PULSE_RUNTIME_PATH=/mnt/wslg/runtime-dir/pulse" << std::endl;
-                std::cout << "   export PULSE_SERVER=unix:/mnt/wslg/PulseServer" << std::endl;
-                
-                // Verificar se mpg123 está disponível como fallback
-                if (std::system("which mpg123 >/dev/null 2>&1") == 0) {
-                    std::cout << "\nmpg123 detectado - tentando usar como fallback para áudio..." << std::endl;
-                    useMpg123Fallback = true;
-                }
-            } else {
-                std::cerr << "Erro crítico ao inicializar FMOD: " << result << std::endl;
-                system->release();
-                system = nullptr;
-                isInitialized = false;
-                return true; // Retorna true para o jogo continuar funcionando
-            }
-        }
-    }
-    
-    // Carregar músicas (funciona mesmo em modo silencioso)
-    result = system->createSound("src/sounds/faster_than_light.mp3", FMOD_LOOP_NORMAL, nullptr, &fasterThanLight);
-    if (result != FMOD_OK) {
-        std::cerr << "Erro ao carregar faster_than_light.mp3: " << result << std::endl;
-        // Não retorna false - continua sem esta música
-    } else {
-        std::cout << "Música faster_than_light.mp3 carregada com sucesso!" << std::endl;
-    }
-    
-    result = system->createSound("src/sounds/misty_effect.mp3", FMOD_LOOP_NORMAL, nullptr, &mistyEffect);
-    if (result != FMOD_OK) {
-        std::cerr << "Erro ao carregar misty_effect.mp3: " << result << std::endl;
-        // Não retorna false - continua sem esta música
-    } else {
-        std::cout << "Música misty_effect.mp3 carregada com sucesso!" << std::endl;
-    }
-    
+#ifdef _WIN32
+    std::cout << "Usando Windows Multimedia API..." << std::endl;
     isInitialized = true;
+    std::cout << "Sistema de áudio Windows inicializado!" << std::endl;
     
-    // Verificar qual output está sendo usado
-    FMOD_OUTPUTTYPE outputType;
-    system->getOutput(&outputType);
-    std::cout << "Sistema de áudio FMOD inicializado com sucesso!" << std::endl;
-    std::cout << "Tipo de saída de áudio: " << (outputType == FMOD_OUTPUTTYPE_NOSOUND ? "NoSound (Silencioso)" : "Hardware") << std::endl;
+    // Verificar se os arquivos de música existem
+    std::ifstream menuFile("src/sounds/faster_than_light.wav");
+    std::ifstream gameFile("src/sounds/misty_effect.wav");
+    
+    if (menuFile.good()) {
+        std::cout << "✓ Música do menu encontrada: faster_than_light.wav" << std::endl;
+    } else {
+        std::cout << "✗ Música do menu não encontrada: src/sounds/faster_than_light.wav" << std::endl;
+    }
+    
+    if (gameFile.good()) {
+        std::cout << "✓ Música do jogo encontrada: misty_effect.wav" << std::endl;
+    } else {
+        std::cout << "✗ Música do jogo não encontrada: src/sounds/misty_effect.wav" << std::endl;
+    }
     
     return true;
+#else
+    std::cout << "Sistema não Windows detectado!" << std::endl;
+    return false;
+#endif
 }
 
 void Audio::update() {
-    if (isInitialized && system) {
-        system->update();
-    }
+    // Não precisa de update manual no Windows
 }
 
 void Audio::cleanup() {
-    // Parar mpg123 se estiver rodando
-    stopMpg123();
-    
-    if (fasterThanLight) {
-        fasterThanLight->release();
-        fasterThanLight = nullptr;
+#ifdef _WIN32
+    stopMusicWindows();
+    if (musicThread.joinable()) {
+        musicThread.join();
     }
-    
-    if (mistyEffect) {
-        mistyEffect->release();
-        mistyEffect = nullptr;
-    }
-    
-    if (system) {
-        system->close();
-        system->release();
-        system = nullptr;
-    }
-    
+#endif
     isInitialized = false;
 }
 
 void Audio::playMenuMusic() {
-    if (!isInitialized) {
-        return;
-    }
-    
-    // Se estamos usando mpg123 como fallback
-    if (useMpg123Fallback) {
-        stopMpg123(); // Parar música anterior
-        playWithMpg123("src/sounds/faster_than_light.mp3", true);
-        currentMusic = "faster_than_light";
-        std::cout << "Tocando música do menu com mpg123: faster_than_light" << std::endl;
-        return;
-    }
-    
-    // Usar FMOD normalmente
-    if (!system || !fasterThanLight) {
-        return;
-    }
+    if (!isInitialized) return;
     
     // Parar música atual se estiver tocando
-    if (musicChannel) {
-        musicChannel->stop();
-    }
+    stopMusic();
     
-    // Tocar música do menu
-    FMOD_RESULT result = system->playSound(fasterThanLight, nullptr, false, &musicChannel);
-    if (result == FMOD_OK) {
-        currentMusic = "faster_than_light";
-        // Definir volume para 100%
-        musicChannel->setVolume(1.0f);
-        std::cout << "Tocando música do menu: faster_than_light (volume: 100%)" << std::endl;
-    } else {
-        std::cerr << "Erro ao tocar música do menu: " << result << std::endl;
+    currentMusic = "faster_than_light";
+    std::cout << "Iniciando música do menu..." << std::endl;
+    
+#ifdef _WIN32
+    // Lista de possíveis localizações para o arquivo de música do menu
+    std::vector<std::string> musicFiles = {
+        "src/sounds/faster_than_light.wav",
+        "sounds/faster_than_light.wav",
+        "faster_than_light.wav"
+    };
+    
+    for (const auto& file : musicFiles) {
+        std::ifstream test(file);
+        if (test.good()) {
+            playMusicWindows(file, true);
+            std::cout << "♪ Tocando música do menu: " << file << std::endl;
+            return;
+        }
     }
+    std::cout << "⚠ Nenhum arquivo de música do menu encontrado!" << std::endl;
+    std::cout << "  Procurado: faster_than_light.wav" << std::endl;
+#endif
 }
 
 void Audio::playGameMusic() {
-    if (!isInitialized) {
-        return;
-    }
-    
-    // Se estamos usando mpg123 como fallback
-    if (useMpg123Fallback) {
-        stopMpg123(); // Parar música anterior
-        playWithMpg123("src/sounds/misty_effect.mp3", true);
-        currentMusic = "misty_effect";
-        std::cout << "Tocando música do jogo com mpg123: misty_effect" << std::endl;
-        return;
-    }
-    
-    // Usar FMOD normalmente
-    if (!system || !mistyEffect) {
-        return;
-    }
+    if (!isInitialized) return;
     
     // Parar música atual se estiver tocando
-    if (musicChannel) {
-        musicChannel->stop();
-    }
+    stopMusic();
     
-    // Tocar música do jogo
-    FMOD_RESULT result = system->playSound(mistyEffect, nullptr, false, &musicChannel);
-    if (result == FMOD_OK) {
-        currentMusic = "misty_effect";
-        // Definir volume para 100%
-        musicChannel->setVolume(1.0f);
-        std::cout << "Tocando música do jogo: misty_effect (volume: 100%)" << std::endl;
-    } else {
-        std::cerr << "Erro ao tocar música do jogo: " << result << std::endl;
+    currentMusic = "misty_effect";
+    std::cout << "Iniciando música do jogo..." << std::endl;
+    
+#ifdef _WIN32
+    // Lista de possíveis localizações para o arquivo de música do jogo
+    std::vector<std::string> musicFiles = {
+        "src/sounds/misty_effect.wav",
+        "sounds/misty_effect.wav",
+        "misty_effect.wav"
+    };
+    
+    for (const auto& file : musicFiles) {
+        std::ifstream test(file);
+        if (test.good()) {
+            playMusicWindows(file, true);
+            std::cout << "♪ Tocando música do jogo: " << file << std::endl;
+            return;
+        }
     }
+    std::cout << "⚠ Nenhum arquivo de música do jogo encontrado!" << std::endl;
+    std::cout << "  Procurado: misty_effect.wav" << std::endl;
+#endif
 }
 
 void Audio::stopMusic() {
-    if (useMpg123Fallback) {
-        stopMpg123();
-        currentMusic = "";
-        return;
-    }
+    if (!isInitialized) return;
     
-    if (musicChannel) {
-        musicChannel->stop();
+#ifdef _WIN32
+    stopMusicWindows();
+#endif
+    
+    if (!currentMusic.empty()) {
+        std::cout << "⏹ Parando música: " << currentMusic << std::endl;
         currentMusic = "";
-        std::cout << "Música parada" << std::endl;
     }
 }
 
 void Audio::pauseMusic() {
-    if (musicChannel) {
-        musicChannel->setPaused(true);
-        std::cout << "Música pausada" << std::endl;
+    if (!isInitialized) return;
+    
+#ifdef _WIN32
+    if (musicPlaying) {
+        mciSendStringA("pause music", NULL, 0, NULL);
+        std::cout << "⏸ Música pausada: " << currentMusic << std::endl;
     }
+#endif
 }
 
 void Audio::resumeMusic() {
-    if (musicChannel) {
-        musicChannel->setPaused(false);
-        std::cout << "Música resumida" << std::endl;
+    if (!isInitialized) return;
+    
+#ifdef _WIN32
+    if (musicPlaying && !currentMusic.empty()) {
+        mciSendStringA("resume music", NULL, 0, NULL);
+        std::cout << "▶ Música retomada: " << currentMusic << std::endl;
+    } else {
+        // Reiniciar música se não estiver tocando
+        std::cout << "🔄 Reiniciando música: " << currentMusic << std::endl;
+        if (currentMusic == "faster_than_light") {
+            playMenuMusic();
+        } else if (currentMusic == "misty_effect") {
+            playGameMusic();
+        }
     }
+#endif
 }
 
 void Audio::setMusicVolume(float volume) {
-    if (musicChannel) {
-        // Volume deve estar entre 0.0 e 1.0
-        volume = std::max(0.0f, std::min(1.0f, volume));
-        musicChannel->setVolume(volume);
-    }
+    if (!isInitialized) return;
+    
+#ifdef _WIN32
+    // Limitar volume entre 0.0 e 1.0
+    if (volume < 0.0f) volume = 0.0f;
+    if (volume > 1.0f) volume = 1.0f;
+    
+    DWORD vol = (DWORD)(volume * 0xFFFF);
+    waveOutSetVolume(0, MAKELONG(vol, vol));
+    std::cout << "🔊 Volume ajustado para: " << (int)(volume * 100) << "%" << std::endl;
+#endif
 }
 
 float Audio::getMusicVolume() {
-    float volume = 0.0f;
-    if (musicChannel) {
-        musicChannel->getVolume(&volume);
+    if (!isInitialized) return 1.0f;
+    
+#ifdef _WIN32
+    DWORD volume;
+    if (waveOutGetVolume(0, &volume) == MMSYSERR_NOERROR) {
+        return (float)(LOWORD(volume)) / 0xFFFF;
     }
-    return volume;
+#endif
+    
+    return 1.0f;
 }
 
 bool Audio::isMusicPlaying() {
-    bool playing = false;
-    if (musicChannel) {
-        musicChannel->isPlaying(&playing);
-    }
-    return playing;
+#ifdef _WIN32
+    return musicPlaying;
+#endif
+    return false;
 }
 
 std::string Audio::getCurrentMusic() {
@@ -302,59 +208,94 @@ std::string Audio::getCurrentMusic() {
 }
 
 bool Audio::isAudioWorking() {
-    if (!isInitialized || !system) {
-        return false;
-    }
-    
-    int numDrivers;
-    FMOD_RESULT result = system->getNumDrivers(&numDrivers);
-    return (result == FMOD_OK && numDrivers > 0);
+    return isInitialized;
 }
 
-void Audio::playWithMpg123(const std::string& filename, bool loop) {
-    // Parar qualquer reprodução anterior
-    stopMpg123();
+#ifdef _WIN32
+void Audio::playMusicWindows(const std::string& filename, bool loop) {
+    // Parar música atual primeiro
+    stopMusicWindows();
     
-    if (mpg123Thread.joinable()) {
-        mpg123Thread.join();
-    }
+    currentMusicFile = filename;
+    shouldStopMusic = false;
+    musicPlaying = true;
     
-    shouldStopMpg123 = false;
-    mpg123Playing = true;
-    
-    // Criar thread para reprodução
-    mpg123Thread = std::thread([this, filename, loop]() {
-        std::string command;
-        if (loop) {
-            // Reproduzir em loop infinito
-            command = "while [ ! -f /tmp/stop_mpg123_" + std::to_string(getpid()) + " ]; do mpg123 -q \"" + filename + "\" 2>/dev/null; sleep 0.1; done";
-        } else {
-            command = "mpg123 -q \"" + filename + "\" 2>/dev/null";
+    // Criar thread para tocar música
+    musicThread = std::thread([this, filename, loop]() {
+        std::cout << "🎵 Iniciando reprodução: " << filename << std::endl;
+        
+        // Abrir arquivo de áudio usando MCI
+        std::string openCommand = "open \"" + filename + "\" type waveaudio alias music";
+        MCIERROR openResult = mciSendStringA(openCommand.c_str(), NULL, 0, NULL);
+        
+        if (openResult != 0) {
+            char errorBuffer[128];
+            mciGetErrorStringA(openResult, errorBuffer, sizeof(errorBuffer));
+            std::cout << "❌ Erro ao abrir arquivo: " << errorBuffer << std::endl;
+            musicPlaying = false;
+            return;
         }
         
-        std::cout << "Iniciando reprodução com mpg123: " << filename << std::endl;
-        std::system(command.c_str());
-        mpg123Playing = false;
+        std::cout << "✓ Arquivo de áudio aberto com sucesso" << std::endl;
+        
+        do {
+            if (shouldStopMusic) break;
+            
+            // Tocar música do início
+            MCIERROR playResult = mciSendStringA("play music from 0", NULL, 0, NULL);
+            if (playResult != 0) {
+                char errorBuffer[128];
+                mciGetErrorStringA(playResult, errorBuffer, sizeof(errorBuffer));
+                std::cout << "❌ Erro ao reproduzir: " << errorBuffer << std::endl;
+                break;
+            }
+            
+            // Aguardar término da reprodução
+            char status[32];
+            do {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                
+                if (shouldStopMusic) break;
+                
+                MCIERROR statusResult = mciSendStringA("status music mode", status, 32, NULL);
+                if (statusResult != 0) {
+                    std::cout << "❌ Erro ao verificar status" << std::endl;
+                    break;
+                }
+                
+            } while (strcmp(status, "stopped") != 0 && !shouldStopMusic);
+            
+            if (shouldStopMusic) break;
+            
+            // Se chegou aqui e não deve parar, a música terminou naturalmente
+            if (loop) {
+                std::cout << "🔄 Reiniciando música em loop..." << std::endl;
+            }
+            
+        } while (loop && !shouldStopMusic);
+        
+        // Fechar arquivo
+        mciSendStringA("close music", NULL, 0, NULL);
+        musicPlaying = false;
+        
+        std::cout << "⏹ Reprodução finalizada: " << filename << std::endl;
     });
 }
 
-void Audio::stopMpg123() {
-    if (mpg123Playing) {
-        shouldStopMpg123 = true;
-        // Criar arquivo de sinal para parar o loop
-        std::string stopFile = "/tmp/stop_mpg123_" + std::to_string(getpid());
-        std::system(("touch " + stopFile).c_str());
+void Audio::stopMusicWindows() {
+    if (musicPlaying) {
+        shouldStopMusic = true;
         
-        // Matar processos mpg123 se estiverem rodando
-        std::system("pkill -f mpg123 2>/dev/null");
+        // Parar reprodução imediatamente
+        mciSendStringA("stop music", NULL, 0, NULL);
+        mciSendStringA("close music", NULL, 0, NULL);
         
-        if (mpg123Thread.joinable()) {
-            mpg123Thread.join();
+        // Aguardar thread terminar
+        if (musicThread.joinable()) {
+            musicThread.join();
         }
         
-        // Limpar arquivo de sinal
-        std::system(("rm -f " + stopFile).c_str());
-        mpg123Playing = false;
-        std::cout << "Reprodução mpg123 parada" << std::endl;
+        musicPlaying = false;
     }
 }
+#endif

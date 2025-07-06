@@ -1,171 +1,209 @@
 #include "Scene.h"
-#include "../lighting/Lighting.h"
-#include <cstdlib>
-#include <ctime>
+#include "../texture/Texture.h"
+#include <GL/glut.h>
+#include <cmath>
 
 Scene::Scene() {
+    floorOffset = 0.0f;
     floorSpeed = 20.0f;
-    floorLength = 10.0f;
-    floorWidth = 10.0f;
-    numSections = 10;
-    numStars = 200;
 }
 
 Scene::~Scene() {
 }
 
 void Scene::init() {
-    // Inicializar seções do chão
-    floorSections.clear();
-    for (int i = 0; i < numSections; i++) {
-        Vector3 pos(0.0f, 0.0f, -i * floorLength);
-        Vector3 size(floorWidth, 0.2f, floorLength);
-        floorSections.push_back(FloorSection(pos, size));
+    // Inicializar sistema de texturas se ainda não foi
+    if (!Texture::exists("galaxy")) {
+        Texture::init();
     }
-    
-    // Gerar estrelas
-    generateStars();
 }
 
 void Scene::update(float deltaTime) {
-    updateFloorSections(deltaTime);
+    // Atualizar offset do chão para criar movimento
+    floorOffset += floorSpeed * deltaTime;
+    
+    // Reset quando necessário (evitar overflow)
+    if (floorOffset > 100.0f) {
+        floorOffset -= 100.0f;
+    }
 }
 
 void Scene::render() {
-    renderBackground();
-    renderStars();
+    renderSkybox();
+    
     renderFloor();
-}
-
-void Scene::renderBackground() {
-    // Fundo MUITO MAIS CLARO
-    glClearColor(0.7f, 0.8f, 1.0f, 1.0f);
     
-    // Renderizar gradiente claro
-    glDisable(GL_DEPTH_TEST);
-    glMatrixMode(GL_PROJECTION);
-    glPushMatrix();
-    glLoadIdentity();
-    glOrtho(0, 1, 0, 1, -1, 1);
-    
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
-    
-    glBegin(GL_QUADS);
-    // Gradiente claro de azul para branco
-    glColor3f(0.6f, 0.8f, 1.0f);  // Azul claro no topo
-    glVertex2f(0, 1);
-    glVertex2f(1, 1);
-    glColor3f(0.8f, 0.9f, 1.0f);  // Azul muito claro no meio
-    glVertex2f(1, 0.5f);
-    glVertex2f(0, 0.5f);
-    glColor3f(0.9f, 0.95f, 1.0f); // Quase branco embaixo
-    glVertex2f(1, 0);
-    glVertex2f(0, 0);
-    glEnd();
-    
-    glPopMatrix();
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
-    glMatrixMode(GL_MODELVIEW);
-    glEnable(GL_DEPTH_TEST);
-}
-
-void Scene::renderStars() {
-    // Estrelas ESCURAS para contraste no fundo claro
-    glColor3f(0.0f, 0.0f, 0.5f);  // Azul escuro
-    glPointSize(3.0f);
-    glBegin(GL_POINTS);
-    for (const auto& star : stars) {
-        glVertex3f(star.x, star.y, star.z);
-    }
-    glEnd();
+    // renderLanes(); // Comentado para remover traços e pontilhados
 }
 
 void Scene::renderFloor() {
-    for (const auto& section : floorSections) {
-        if (!section.active) continue;
+    glPushMatrix();
+    
+    // Habilitar texturas
+    glEnable(GL_TEXTURE_2D);
+    
+    // Aplicar textura de galáxia
+    Texture::bind("galaxy");
+    
+    // Configurar cor base para não alterar a textura
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+    
+    // Renderizar múltiplos segmentos do piso para criar continuidade
+    float segmentLength = 50.0f;
+    int numSegments = 4;
+    float textureRepeat = 1.0f;
+    
+    for (int i = 0; i < numSegments; i++) {
+        float z1 = floorOffset - (i * segmentLength);
+        float z2 = z1 - segmentLength;
         
-        glPushMatrix();
-        glTranslatef(section.position.x, section.position.y, section.position.z);
+        // Calcular offset da textura baseado no movimento
+        float texOffsetY = (floorOffset / segmentLength) + i;
         
-        // Material do chão espacial - azul metálico reflexivo
-        Lighting::setFloorMaterial(0.3f, 0.5f, 0.7f);
-        
-        // Renderizar seção do chão
-        glPushMatrix();
-        glScalef(section.size.x, section.size.y, section.size.z);
-        glutSolidCube(1.0f);
-        glPopMatrix();
-        
-        // Contorno do chão com material mais escuro
-        Lighting::setFloorMaterial(0.1f, 0.3f, 0.5f);
-        glPushMatrix();
-        glScalef(section.size.x, section.size.y, section.size.z);
-        glutWireCube(1.0f);
-        glPopMatrix();
-        
-        // Linhas das faixas (efeitos especiais sem iluminação)
-        glDisable(GL_LIGHTING);
-        glColor3f(0.0f, 1.0f, 1.0f);
-        glLineWidth(3.0f);
-        glBegin(GL_LINES);
-        // Linha da faixa esquerda
-        glVertex3f(-1.5f, section.size.y/2 + 0.02f, -section.size.z/2);
-        glVertex3f(-1.5f, section.size.y/2 + 0.02f, section.size.z/2);
-        // Linha da faixa direita
-        glVertex3f(1.5f, section.size.y/2 + 0.02f, -section.size.z/2);
-        glVertex3f(1.5f, section.size.y/2 + 0.02f, section.size.z/2);
+        glBegin(GL_QUADS);
+            // Coordenadas de textura com movimento
+            glTexCoord2f(0.0f, texOffsetY);
+            glVertex3f(-6.0f, 0.0f, z1);
+            
+            glTexCoord2f(textureRepeat, texOffsetY);
+            glVertex3f(6.0f, 0.0f, z1);
+            
+            glTexCoord2f(textureRepeat, texOffsetY + textureRepeat);
+            glVertex3f(6.0f, 0.0f, z2);
+            
+            glTexCoord2f(0.0f, texOffsetY + textureRepeat);
+            glVertex3f(-6.0f, 0.0f, z2);
         glEnd();
-        
-        // Linhas centrais para melhor definição
-        glColor3f(1.0f, 1.0f, 0.0f);
-        glLineWidth(2.0f);
-        glBegin(GL_LINES);
-        // Linha central
-        glVertex3f(0.0f, section.size.y/2 + 0.01f, -section.size.z/2);
-        glVertex3f(0.0f, section.size.y/2 + 0.01f, section.size.z/2);
-        glEnd();
-        glEnable(GL_LIGHTING);
-        
-        glPopMatrix();
     }
+    
+    // Desabilitar texturas
+    Texture::unbind();
+    glDisable(GL_TEXTURE_2D);
+    
+    glPopMatrix();
+}
+
+void Scene::renderSkybox() {
+    glPushMatrix();
+    
+    // Habilitar texturas para o skybox
+    glEnable(GL_TEXTURE_2D);
+    
+    // Usar textura de campo de estrelas para o skybox
+    Texture::bind("starfield");
+    
+    // Desabilitar teste de profundidade para o skybox
+    glDisable(GL_DEPTH_TEST);
+    
+    // Configurar cor
+    glColor4f(0.8f, 0.8f, 1.0f, 1.0f); // Azul claro
+    
+    // Renderizar skybox como um grande cubo ao redor do jogador
+    float skySize = 500.0f;
+    
+    // Parede traseira
+    glBegin(GL_QUADS);
+        glTexCoord2f(0.0f, 0.0f); glVertex3f(-skySize, -skySize, -skySize);
+        glTexCoord2f(1.0f, 0.0f); glVertex3f(skySize, -skySize, -skySize);
+        glTexCoord2f(1.0f, 1.0f); glVertex3f(skySize, skySize, -skySize);
+        glTexCoord2f(0.0f, 1.0f); glVertex3f(-skySize, skySize, -skySize);
+    glEnd();
+    
+    // Parede esquerda
+    glBegin(GL_QUADS);
+        glTexCoord2f(0.0f, 0.0f); glVertex3f(-skySize, -skySize, skySize);
+        glTexCoord2f(1.0f, 0.0f); glVertex3f(-skySize, -skySize, -skySize);
+        glTexCoord2f(1.0f, 1.0f); glVertex3f(-skySize, skySize, -skySize);
+        glTexCoord2f(0.0f, 1.0f); glVertex3f(-skySize, skySize, skySize);
+    glEnd();
+    
+    // Parede direita
+    glBegin(GL_QUADS);
+        glTexCoord2f(0.0f, 0.0f); glVertex3f(skySize, -skySize, -skySize);
+        glTexCoord2f(1.0f, 0.0f); glVertex3f(skySize, -skySize, skySize);
+        glTexCoord2f(1.0f, 1.0f); glVertex3f(skySize, skySize, skySize);
+        glTexCoord2f(0.0f, 1.0f); glVertex3f(skySize, skySize, -skySize);
+    glEnd();
+    
+    // Teto com textura de nebulosa
+    Texture::bind("nebula");
+    glColor4f(0.6f, 0.4f, 0.8f, 1.0f); // Roxo
+    glBegin(GL_QUADS);
+        glTexCoord2f(0.0f, 0.0f); glVertex3f(-skySize, skySize, -skySize);
+        glTexCoord2f(1.0f, 0.0f); glVertex3f(skySize, skySize, -skySize);
+        glTexCoord2f(1.0f, 1.0f); glVertex3f(skySize, skySize, skySize);
+        glTexCoord2f(0.0f, 1.0f); glVertex3f(-skySize, skySize, skySize);
+    glEnd();
+    
+    // Reabilitar teste de profundidade
+    glEnable(GL_DEPTH_TEST);
+    
+    // Desabilitar texturas
+    Texture::unbind();
+    glDisable(GL_TEXTURE_2D);
+    
+    glPopMatrix();
+}
+
+void Scene::renderLanes() {
+    // FUNÇÃO COMENTADA - Remove traços e pontilhados da pista
+    // Deixa apenas a textura de galáxia limpa
+    /*
+    // Renderizar linhas das faixas sem textura
+    glDisable(GL_TEXTURE_2D);
+    
+    // Linhas das faixas - amarelas brilhantes
+    glColor4f(1.0f, 1.0f, 0.0f, 0.8f);
+    glLineWidth(3.0f);
+    
+    // Renderizar linhas tracejadas
+    float lineLength = 2.0f;
+    float gapLength = 1.0f;
+    float totalLength = lineLength + gapLength;
+    
+    for (int lane = 0; lane < 2; lane++) {
+        float x = (lane - 0.5f) * 6.0f; // Posições -3 e 3
+        
+        glBegin(GL_LINES);
+        for (float z = floorOffset; z > floorOffset - 100.0f; z -= totalLength) {
+            glVertex3f(x, 0.01f, z);
+            glVertex3f(x, 0.01f, z - lineLength);
+        }
+        glEnd();
+    }
+    
+    // Bordas da pista - brancas
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+    glLineWidth(4.0f);
+    
+    glBegin(GL_LINES);
+    // Borda esquerda
+    glVertex3f(-6.0f, 0.01f, floorOffset);
+    glVertex3f(-6.0f, 0.01f, floorOffset - 100.0f);
+    
+    // Borda direita
+    glVertex3f(6.0f, 0.01f, floorOffset);
+    glVertex3f(6.0f, 0.01f, floorOffset - 100.0f);
+    glEnd();
+    */
 }
 
 void Scene::setupCamera() {
-    gluLookAt(0.0f, 8.0f, 15.0f,  // Posição da câmera
-              0.0f, 2.0f, 0.0f,   // Ponto para onde olha
-              0.0f, 1.0f, 0.0f);  // Vetor up
-}
-
-void Scene::generateStars() {
-    stars.clear();
-    srand(time(NULL));
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
     
-    for (int i = 0; i < numStars; i++) {
-        float x = (rand() % 200 - 100) * 2.0f;
-        float y = (rand() % 100 + 20) * 2.0f;
-        float z = (rand() % 200 - 100) * 2.0f;
-        stars.push_back(Vector3(x, y, z));
-    }
+    // Câmera em terceira pessoa atrás do jogador
+    gluLookAt(
+        0.0f, 8.0f, 15.0f,    // Posição da câmera
+        0.0f, 2.0f, 0.0f,     // Ponto para onde olha
+        0.0f, 1.0f, 0.0f      // Vetor up
+    );
 }
 
-void Scene::updateFloorSections(float deltaTime) {
-    for (auto& section : floorSections) {
-        section.position.z += floorSpeed * deltaTime;
-        
-        // Reposicionar seção quando sai da tela
-        if (section.position.z > 20.0f) {
-            // Encontrar a seção mais atrás para posicionar logo após ela
-            float minZ = section.position.z;
-            for (const auto& otherSection : floorSections) {
-                if (otherSection.position.z < minZ) {
-                    minZ = otherSection.position.z;
-                }
-            }
-            // Posicionar logo após a seção mais atrás
-            section.position.z = minZ - floorLength;
-        }
-    }
-} 
+void Scene::setFloorSpeed(float speed) {
+    floorSpeed = speed;
+}
+
+float Scene::getFloorSpeed() const {
+    return floorSpeed;
+}
