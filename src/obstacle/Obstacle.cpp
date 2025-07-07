@@ -1,6 +1,110 @@
 #include "Obstacle.h"
 #include "../lighting/Lighting.h"
 #include <cmath>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <iostream>
+
+// Estrutura para armazenar dados do modelo OBJ
+struct OBJVertex {
+    float x, y, z;
+};
+
+struct OBJFace {
+    int v1, v2, v3;
+};
+
+// Variáveis globais para o modelo do alien (carregado uma vez)
+static std::vector<OBJVertex> alienVertices;
+static std::vector<OBJFace> alienFaces;
+static bool alienModelLoaded = false;
+
+// Função para carregar modelo OBJ
+bool loadOBJModel(const std::string& filename) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cout << "Erro: Não foi possível carregar o modelo " << filename << std::endl;
+        return false;
+    }
+    
+    alienVertices.clear();
+    alienFaces.clear();
+    
+    std::string line;
+    while (std::getline(file, line)) {
+        std::istringstream iss(line);
+        std::string type;
+        iss >> type;
+        
+        if (type == "v") {
+            // Vértice
+            OBJVertex vertex;
+            iss >> vertex.x >> vertex.y >> vertex.z;
+            alienVertices.push_back(vertex);
+        } else if (type == "f") {
+            // Face (assumindo triângulos)
+            OBJFace face;
+            std::string v1, v2, v3;
+            iss >> v1 >> v2 >> v3;
+            
+            // Extrair apenas o índice do vértice (ignorar textura e normal se existirem)
+            face.v1 = std::stoi(v1.substr(0, v1.find('/'))) - 1; // OBJ usa índices baseados em 1
+            face.v2 = std::stoi(v2.substr(0, v2.find('/'))) - 1;
+            face.v3 = std::stoi(v3.substr(0, v3.find('/'))) - 1;
+            alienFaces.push_back(face);
+        }
+    }
+    
+    file.close();
+    std::cout << "Modelo alien carregado: " << alienVertices.size() << " vértices, " 
+              << alienFaces.size() << " faces" << std::endl;
+    return true;
+}
+
+// Função para renderizar o modelo do alien
+void renderAlienModel() {
+    if (!alienModelLoaded) {
+        alienModelLoaded = loadOBJModel("assets/models/alien_11.obj");
+        if (!alienModelLoaded) {
+            // Se falhar ao carregar, usar cubo como fallback
+            glutSolidCube(1.0f);
+            return;
+        }
+    }
+    
+    // Renderizar o modelo usando triângulos
+    glBegin(GL_TRIANGLES);
+    for (const auto& face : alienFaces) {
+        if (static_cast<size_t>(face.v1) < alienVertices.size() && 
+            static_cast<size_t>(face.v2) < alienVertices.size() && 
+            static_cast<size_t>(face.v3) < alienVertices.size()) {
+            
+            const OBJVertex& v1 = alienVertices[face.v1];
+            const OBJVertex& v2 = alienVertices[face.v2];
+            const OBJVertex& v3 = alienVertices[face.v3];
+            
+            // Calcular normal para a face
+            float nx = (v2.y - v1.y) * (v3.z - v1.z) - (v2.z - v1.z) * (v3.y - v1.y);
+            float ny = (v2.z - v1.z) * (v3.x - v1.x) - (v2.x - v1.x) * (v3.z - v1.z);
+            float nz = (v2.x - v1.x) * (v3.y - v1.y) - (v2.y - v1.y) * (v3.x - v1.x);
+            
+            // Normalizar
+            float length = sqrt(nx*nx + ny*ny + nz*nz);
+            if (length > 0) {
+                nx /= length;
+                ny /= length;
+                nz /= length;
+            }
+            
+            glNormal3f(nx, ny, nz);
+            glVertex3f(v1.x, v1.y, v1.z);
+            glVertex3f(v2.x, v2.y, v2.z);
+            glVertex3f(v3.x, v3.y, v3.z);
+        }
+    }
+    glEnd();
+}
 
 Obstacle::Obstacle() {
     position = Vector3(0.0f, 0.0f, 0.0f);
@@ -68,25 +172,34 @@ void Obstacle::render() const {
     // Renderização baseada no tipo
     switch (type) {
         case STATIC:
-            // Obstáculo estático - vermelho metálico perigoso
-            Lighting::setObstacleMaterial(1.0f, 0.0f, 0.0f, true); // Vermelho metálico
+            // Obstáculo alien - verde alienígena metálico
+            Lighting::setObstacleMaterial(0.2f, 0.8f, 0.2f, true); // Verde metálico
             
-            // Renderizar cubo principal
+            // Renderizar modelo do alien (elevado, reduzido pela metade e rotacionado)
             glPushMatrix();
-            glScalef(size.x, size.y, size.z);
-            glutSolidCube(1.0f);
+            glTranslatef(0.0f, size.y * 1.1f, 0.0f); // Elevar o alien
+            glRotatef(180.0f, 0.0f, 0.0f, 1.0f); // Rotacionar 180 graus no eixo Z
+            glScalef(size.x * 0.2f, size.y * 0.2f, size.z * 0.2f);
+            renderAlienModel();
             glPopMatrix();
             
-            // Efeito de perigo - material energético
-            Lighting::setEnergyMaterial(1.0f, 0.3f, 0.3f, 1.5f);
+            // Efeito de energia alien - material energético verde
+            Lighting::setEnergyMaterial(0.3f, 1.0f, 0.3f, 1.5f);
             glPushMatrix();
-            glScalef(size.x * 0.7f, size.y * 0.7f, size.z * 0.7f);
-            glutSolidCube(1.0f);
-            glPopMatrix();
-            
-            // Contorno de alerta (sem iluminação)
+            glScalef(size.x * 0.9f, size.y * 0.9f, size.z * 0.9f);
+            // Aura energética ao redor do alien
             glDisable(GL_LIGHTING);
-            glColor3f(1.0f, 1.0f, 0.0f);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glColor4f(0.0f, 1.0f, 0.0f, 0.3f); // Verde translúcido
+            glutSolidCube(1.0f);
+            glDisable(GL_BLEND);
+            glEnable(GL_LIGHTING);
+            glPopMatrix();
+            
+            // Contorno de alerta alienígena (sem iluminação)
+            glDisable(GL_LIGHTING);
+            glColor3f(0.0f, 1.0f, 0.0f); // Verde brilhante
             glLineWidth(3.0f);
             glPushMatrix();
             glScalef(size.x, size.y, size.z);
@@ -262,4 +375,4 @@ Vector3 Obstacle::getMin() const {
 
 Vector3 Obstacle::getMax() const {
     return Vector3(position.x + size.x/2, position.y + size.y/2, position.z + size.z/2);
-} 
+}
