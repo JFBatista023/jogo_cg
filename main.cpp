@@ -210,40 +210,63 @@ void spawnTwoObstacles() {
 
 // Função de inicialização
 void init() {
-    // Configurar OpenGL
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    
-    // Inicializar sistemas
-    Texture::init();
-    Lighting::initGameLighting();  // Usar a nova função de iluminação específica do jogo
-    
-    // Criar objetos do jogo
-    player = new Player();
-    scene = new Scene();
-    score = new Score();
-    menu = new Menu();
-    audio = new Audio();
-    
-    // Inicializar sistema de áudio
-    if (!audio->initialize()) {
-        std::cerr << "Aviso: Sistema de áudio não pôde ser inicializado!" << std::endl;
-    } else {
-        // Tocar música do menu inicial
-        audio->playMenuMusic();
+    try {
+        std::cout << "Iniciando configuração OpenGL..." << std::endl;
+        
+        // Configurar OpenGL
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        
+        std::cout << "OpenGL configurado. Inicializando sistemas..." << std::endl;
+        
+        // Inicializar sistemas
+        Texture::init();
+        Lighting::initGameLighting();  // Usar a nova função de iluminação específica do jogo
+        
+        std::cout << "Criando objetos do jogo..." << std::endl;
+        
+        // Criar objetos do jogo
+        player = new Player();
+        std::cout << "Player criado." << std::endl;
+        
+        scene = new Scene();
+        std::cout << "Scene criada." << std::endl;
+        
+        score = new Score();
+        std::cout << "Score criado." << std::endl;
+        
+        menu = new Menu();
+        std::cout << "Menu criado." << std::endl;
+        
+        audio = new Audio();
+        std::cout << "Audio criado." << std::endl;
+        
+        // Inicializar sistema de áudio
+        if (!audio->initialize()) {
+            std::cerr << "Aviso: Sistema de áudio não pôde ser inicializado!" << std::endl;
+        } else {
+            // Tocar música do menu inicial
+            audio->playMenuMusic();
+        }
+        
+        // Inicializar cena
+        scene->init();
+        
+        // Configurar tempo inicial
+        lastTime = std::chrono::high_resolution_clock::now();
+        
+        // Inicializar gerador de números aleatórios
+        srand(time(NULL));
+        
+        std::cout << "Cosmic Dash inicializado com sucesso!" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "ERRO CRÍTICO na inicialização: " << e.what() << std::endl;
+        exit(1);
+    } catch (...) {
+        std::cerr << "ERRO CRÍTICO desconhecido na inicialização!" << std::endl;
+        exit(1);
     }
-    
-    // Inicializar cena
-    scene->init();
-    
-    // Configurar tempo inicial
-    lastTime = std::chrono::high_resolution_clock::now();
-    
-    // Inicializar gerador de números aleatórios
-    srand(time(NULL));
-    
-    std::cout << "Cosmic Dash inicializado com sucesso!" << std::endl;
 }
 
 // Função de atualização
@@ -651,4 +674,4 @@ int main(int argc, char** argv) {
     glutMainLoop();
     
     return 0;
-} 
+}

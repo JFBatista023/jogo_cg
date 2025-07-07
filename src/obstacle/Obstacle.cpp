@@ -205,10 +205,12 @@ void Obstacle::render() const {
             renderAlienModel();
             glPopMatrix();
             
-            // Efeito de energia alien - material energético verde
-            Lighting::setEnergyMaterial(0.3f, 1.0f, 0.3f, 1.5f);
-            glPushMatrix();
-            glScalef(size.x * 0.9f, size.y * 0.9f, size.z * 0.9f);
+            // REMOVER: Efeito de energia alien - material energético verde
+            // Lighting::setEnergyMaterial(0.3f, 1.0f, 0.3f, 1.5f);
+            // glPushMatrix();
+            // glScalef(size.x * 0.9f, size.y * 0.9f, size.z * 0.9f);
+            // glutSolidCube(1.0f); // <- Este cubo foi removido
+            // glPopMatrix();
 
             break;
             
@@ -224,7 +226,6 @@ void Obstacle::render() const {
             renderAlienModel();
             glPopMatrix();
             
-
             break;
             
         case ROCKET:
@@ -306,4 +307,4 @@ Vector3 Obstacle::getMin() const {
 
 Vector3 Obstacle::getMax() const {
     return Vector3(position.x + size.x/2, position.y + size.y/2, position.z + size.z/2);
-} 
+}
