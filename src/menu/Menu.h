@@ -52,6 +52,16 @@ public:
 private:
     int getTextWidth(const std::string& text, void* font);
     void renderMenuOption(float y, const std::string& text, bool selected);
+    
+    // Novas funções para menu moderno
+    void renderSpaceBackground();
+    void renderStarField();
+    void renderNebulas();
+    void renderAnimatedParticles();
+    void renderMainMenuPanel();
+    void renderEnhancedTitle();
+    void renderModernMenuOptions();
+    void renderStylizedInstructions();
 };
 
 #endif
