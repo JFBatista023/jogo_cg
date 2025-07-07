@@ -35,7 +35,7 @@ const int WINDOW_HEIGHT = 600;
 GameState gameState = MENU;
 bool debugMode = false;
 float obstacleSpawnTimer = 0.0f;
-const float OBSTACLE_SPAWN_INTERVAL = 2.0f;
+float OBSTACLE_SPAWN_INTERVAL = 2.0f;
 
 // Sistema de velocidade progressiva
 float gameTime = 0.0f;
@@ -91,8 +91,8 @@ void spawnSingleObstacle() {
         size = Vector3(1.0f, 2.5f, 1.0f); // Obstáculo alto - elevado do chão
     }
     
-    // Posição inicial (à frente do jogador)
-    Vector3 position(x, 2.0f, -30.0f);
+    // Posição inicial (muito mais à frente do jogador)
+    Vector3 position(x, 2.0f, -50.0f);
     
     // Ajustar posição Y para obstáculos altos (elevados do chão)
     if (type == HIGH_OBSTACLE) {
@@ -109,8 +109,8 @@ void spawnSingleObstacle() {
         }
     }
     
-    // Se não encontrou um inativo, criar novo
-    if (!spawned && obstacles.size() < 20) {
+    // Se não encontrou um inativo, criar novo (limite reduzido para performance)
+    if (!spawned && obstacles.size() < 15) {
         obstacles.push_back(Obstacle(position, size, type));
     }
 }
@@ -172,9 +172,9 @@ void spawnTwoObstacles() {
         size2 = Vector3(1.0f, 2.5f, 1.0f);
     }
     
-    // Posições iniciais
-    Vector3 position1(x1, 2.0f, -30.0f);
-    Vector3 position2(x2, 2.0f, -30.0f);
+    // Posições iniciais (muito mais à frente do jogador)
+    Vector3 position1(x1, 2.0f, -50.0f);
+    Vector3 position2(x2, 2.0f, -50.0f);
     
     // Ajustar posição Y para obstáculos altos (elevados do chão)
     if (type1 == HIGH_OBSTACLE) {
@@ -197,8 +197,8 @@ void spawnTwoObstacles() {
         }
     }
     
-    // Se não encontrou inativos suficientes, criar novos
-    while (spawned < 2 && obstacles.size() < 20) {
+    // Se não encontrou inativos suficientes, criar novos (limite reduzido para performance)
+    while (spawned < 2 && obstacles.size() < 15) {
         if (spawned == 0) {
             obstacles.push_back(Obstacle(position1, size1, type1));
         } else {
@@ -271,6 +271,9 @@ void update() {
         
         // Atualizar velocidade da cena
         scene->setFloorSpeed(20.0f * speedMultiplier);
+        
+        // Ajustar intervalo de spawn baseado na velocidade (mais rápido = menos obstáculos por segundo)
+        OBSTACLE_SPAWN_INTERVAL = 2.0f + (speedMultiplier - 1.0f) * 0.3f;
     }
     
     switch (gameState) {

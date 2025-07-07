@@ -14,6 +14,7 @@ struct OBJVertex {
 
 struct OBJFace {
     int v1, v2, v3;
+    float nx, ny, nz; // Normal pré-calculada
 };
 
 // Variáveis globais para o modelo do alien (carregado uma vez)
@@ -53,6 +54,38 @@ bool loadOBJModel(const std::string& filename) {
             face.v1 = std::stoi(v1.substr(0, v1.find('/'))) - 1; // OBJ usa índices baseados em 1
             face.v2 = std::stoi(v2.substr(0, v2.find('/'))) - 1;
             face.v3 = std::stoi(v3.substr(0, v3.find('/'))) - 1;
+            
+            // Calcular normal da face uma vez durante o carregamento
+            if (static_cast<size_t>(face.v1) < alienVertices.size() && 
+                static_cast<size_t>(face.v2) < alienVertices.size() && 
+                static_cast<size_t>(face.v3) < alienVertices.size()) {
+                
+                const OBJVertex& v1_ref = alienVertices[face.v1];
+                const OBJVertex& v2_ref = alienVertices[face.v2];
+                const OBJVertex& v3_ref = alienVertices[face.v3];
+                
+                // Calcular normal
+                float nx = (v2_ref.y - v1_ref.y) * (v3_ref.z - v1_ref.z) - (v2_ref.z - v1_ref.z) * (v3_ref.y - v1_ref.y);
+                float ny = (v2_ref.z - v1_ref.z) * (v3_ref.x - v1_ref.x) - (v2_ref.x - v1_ref.x) * (v3_ref.z - v1_ref.z);
+                float nz = (v2_ref.x - v1_ref.x) * (v3_ref.y - v1_ref.y) - (v2_ref.y - v1_ref.y) * (v3_ref.x - v1_ref.x);
+                
+                // Normalizar
+                float length = sqrt(nx*nx + ny*ny + nz*nz);
+                if (length > 0) {
+                    face.nx = nx / length;
+                    face.ny = ny / length;
+                    face.nz = nz / length;
+                } else {
+                    face.nx = 0.0f;
+                    face.ny = 1.0f;
+                    face.nz = 0.0f;
+                }
+            } else {
+                face.nx = 0.0f;
+                face.ny = 1.0f;
+                face.nz = 0.0f;
+            }
+            
             alienFaces.push_back(face);
         }
     }
@@ -74,7 +107,7 @@ void renderAlienModel() {
         }
     }
     
-    // Renderizar o modelo usando triângulos
+    // Renderizar o modelo usando triângulos com normais pré-calculadas
     glBegin(GL_TRIANGLES);
     for (const auto& face : alienFaces) {
         if (static_cast<size_t>(face.v1) < alienVertices.size() && 
@@ -85,20 +118,8 @@ void renderAlienModel() {
             const OBJVertex& v2 = alienVertices[face.v2];
             const OBJVertex& v3 = alienVertices[face.v3];
             
-            // Calcular normal para a face
-            float nx = (v2.y - v1.y) * (v3.z - v1.z) - (v2.z - v1.z) * (v3.y - v1.y);
-            float ny = (v2.z - v1.z) * (v3.x - v1.x) - (v2.x - v1.x) * (v3.z - v1.z);
-            float nz = (v2.x - v1.x) * (v3.y - v1.y) - (v2.y - v1.y) * (v3.x - v1.x);
-            
-            // Normalizar
-            float length = sqrt(nx*nx + ny*ny + nz*nz);
-            if (length > 0) {
-                nx /= length;
-                ny /= length;
-                nz /= length;
-            }
-            
-            glNormal3f(nx, ny, nz);
+            // Usar normal pré-calculada
+            glNormal3f(face.nx, face.ny, face.nz);
             glVertex3f(v1.x, v1.y, v1.z);
             glVertex3f(v2.x, v2.y, v2.z);
             glVertex3f(v3.x, v3.y, v3.z);
@@ -192,116 +213,75 @@ void Obstacle::render() const {
             break;
             
         case MOVING_VERTICAL:
-            // Obstáculo móvel - laranja metálico energético
+            // Obstáculo alien móvel - laranja metálico energético
             Lighting::setObstacleMaterial(1.0f, 0.5f, 0.0f, true); // Laranja metálico
             
-            // Renderizar cubo principal
+            // Renderizar modelo do alien (elevado, reduzido e rotacionado)
             glPushMatrix();
-            glScalef(size.x, size.y, size.z);
-            glutSolidCube(1.0f);
-            glPopMatrix();
-            
-            // Efeito de movimento energético
-            Lighting::setEnergyMaterial(1.0f, 0.8f, 0.2f, 2.0f);
-            glPushMatrix();
-            glScalef(size.x * 0.8f, size.y * 0.8f, size.z * 0.8f);
-            glutSolidCube(1.0f);
-            glPopMatrix();
-            
-            // Núcleo brilhante
-            Lighting::setEnergyMaterial(1.0f, 1.0f, 0.5f, 3.0f);
-            glPushMatrix();
-            glScalef(size.x * 0.4f, size.y * 0.4f, size.z * 0.4f);
-            glutSolidCube(1.0f);
+            glTranslatef(0.0f, size.y * 1.1f, 0.0f); // Elevar o alien
+            glRotatef(180.0f, 0.0f, 0.0f, 1.0f); // Rotacionar 180 graus no eixo Z
+            glScalef(size.x * 0.2f, size.y * 0.2f, size.z * 0.2f);
+            renderAlienModel();
             glPopMatrix();
             
 
             break;
             
         case ROCKET:
-            // Foguete espacial - cinza metálico com detalhes realistas
-            Lighting::setObstacleMaterial(0.6f, 0.6f, 0.6f, true); // Corpo principal cinza metálico
+            // FOGUETE ESPACIAL OTIMIZADO - Vermelho e branco
             
-            // Corpo principal do foguete (mais longo)
+            // Corpo principal - Vermelho brilhante (simplificado)
+            Lighting::setObstacleMaterial(0.9f, 0.1f, 0.1f, true);
             glPushMatrix();
-            glScalef(size.x * 0.8f, size.y * 0.8f, size.z * 2.5f); // Proporção ajustada para altura maior
+            glScalef(size.x * 1.4f, size.y * 1.2f, size.z * 2.5f);
             glutSolidCube(1.0f);
             glPopMatrix();
             
-            // Nose cone (ponta do foguete) - metal polido
-            Lighting::setObstacleMaterial(0.8f, 0.8f, 0.8f, true);
+            // Nose cone - Branco polido
+            Lighting::setObstacleMaterial(1.0f, 1.0f, 1.0f, true);
             glPushMatrix();
-            glTranslatef(0.0f, 0.0f, size.z * 1.25f); // Posicionar na frente
-            glScalef(size.x * 0.4f, size.y * 0.4f, size.z * 0.8f);
+            glTranslatef(0.0f, 0.0f, size.z * 1.25f);
+            glScalef(size.x * 0.7f, size.y * 0.7f, size.z * 1.0f);
             glutSolidCone(0.5f, 1.0f, 8, 1);
             glPopMatrix();
             
-            // Asas laterais - metal escuro
-            Lighting::setObstacleMaterial(0.5f, 0.5f, 0.5f, true);
+            // Asas principais - Vermelho escuro (combinadas)
+            Lighting::setObstacleMaterial(0.7f, 0.0f, 0.0f, true);
+            
             // Asa esquerda
             glPushMatrix();
-            glTranslatef(-size.x * 0.6f, 0.0f, 0.0f);
-            glScalef(size.x * 0.3f, size.y * 0.6f, size.z * 0.8f);
+            glTranslatef(-size.x * 0.8f, 0.0f, -size.z * 0.2f);
+            glScalef(size.x * 0.4f, size.y * 0.6f, size.z * 1.2f);
             glutSolidCube(1.0f);
             glPopMatrix();
             
             // Asa direita
             glPushMatrix();
-            glTranslatef(size.x * 0.6f, 0.0f, 0.0f);
-            glScalef(size.x * 0.3f, size.y * 0.6f, size.z * 0.8f);
+            glTranslatef(size.x * 0.8f, 0.0f, -size.z * 0.2f);
+            glScalef(size.x * 0.4f, size.y * 0.6f, size.z * 1.2f);
             glutSolidCube(1.0f);
             glPopMatrix();
             
-            // Motor (parte traseira) - metal escuro
-            Lighting::setObstacleMaterial(0.3f, 0.3f, 0.3f, true);
+            // Asa estabilizadora superior - Branco
+            Lighting::setObstacleMaterial(0.9f, 0.9f, 0.9f, true);
             glPushMatrix();
-            glTranslatef(0.0f, 0.0f, -size.z * 1.25f);
-            glScalef(size.x * 0.6f, size.y * 0.6f, size.z * 0.6f);
+            glTranslatef(0.0f, size.y * 0.6f, -size.z * 0.2f);
+            glScalef(size.x * 0.5f, size.y * 0.2f, size.z * 1.0f);
             glutSolidCube(1.0f);
             glPopMatrix();
             
-            // Chama do motor (efeito de propulsão) - energia pura
-            Lighting::setEnergyMaterial(1.0f, 0.3f, 0.0f, 2.5f); // Laranja brilhante
-            glPushMatrix();
-            glTranslatef(0.0f, 0.0f, -size.z * 1.8f);
-            glScalef(size.x * 0.3f, size.y * 0.3f, size.z * 0.8f);
-            glutSolidCone(0.5f, 1.0f, 8, 1);
-            glPopMatrix();
-            
-            // Chama interna mais brilhante - núcleo energético
-            Lighting::setEnergyMaterial(1.0f, 0.8f, 0.0f, 3.0f); // Amarelo muito brilhante
-            glPushMatrix();
-            glTranslatef(0.0f, 0.0f, -size.z * 1.9f);
-            glScalef(size.x * 0.15f, size.y * 0.15f, size.z * 0.6f);
-            glutSolidCone(0.5f, 1.0f, 8, 1);
-            glPopMatrix();
-            
-
             break;
             
         case HIGH_OBSTACLE:
-            // Obstáculo alto - material roxo metálico ameaçador
+            // Obstáculo alien alto - material roxo metálico ameaçador
             Lighting::setObstacleMaterial(0.5f, 0.0f, 0.8f, true); // Roxo metálico escuro
             
-            // Corpo principal alto
+            // Renderizar modelo do alien (elevado, reduzido e rotacionado)
             glPushMatrix();
-            glScalef(size.x, size.y, size.z);
-            glutSolidCube(1.0f);
-            glPopMatrix();
-            
-            // Detalhes estruturais - metal mais claro
-            Lighting::setObstacleMaterial(0.7f, 0.2f, 1.0f, true); // Roxo mais claro
-            glPushMatrix();
-            glScalef(size.x * 0.8f, size.y * 0.8f, size.z * 0.8f);
-            glutSolidCube(1.0f);
-            glPopMatrix();
-            
-            // Pontas afiadas no topo - material energético perigoso
-            Lighting::setEnergyMaterial(1.0f, 0.0f, 0.5f, 2.0f); // Rosa/vermelho energético
-            glPushMatrix();
-            glTranslatef(0.0f, size.y * 0.4f, 0.0f);
-            glScalef(size.x * 0.3f, size.y * 0.2f, size.z * 0.3f);
-            glutSolidCone(0.5f, 1.0f, 8, 1);
+            glTranslatef(0.0f, size.y * 1.1f, 0.0f); // Elevar o alien
+            glRotatef(180.0f, 0.0f, 0.0f, 1.0f); // Rotacionar 180 graus no eixo Z
+            glScalef(size.x * 0.2f, size.y * 0.2f, size.z * 0.2f);
+            renderAlienModel();
             glPopMatrix();
             
 
