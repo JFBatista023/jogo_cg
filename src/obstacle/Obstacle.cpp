@@ -1,5 +1,6 @@
 #include "Obstacle.h"
 #include "../lighting/Lighting.h"
+#include "../texture/Texture.h"
 #include <cmath>
 #include <fstream>
 #include <sstream>
@@ -187,25 +188,7 @@ void Obstacle::render() const {
             Lighting::setEnergyMaterial(0.3f, 1.0f, 0.3f, 1.5f);
             glPushMatrix();
             glScalef(size.x * 0.9f, size.y * 0.9f, size.z * 0.9f);
-            // Aura energética ao redor do alien
-            glDisable(GL_LIGHTING);
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            glColor4f(0.0f, 1.0f, 0.0f, 0.3f); // Verde translúcido
-            glutSolidCube(1.0f);
-            glDisable(GL_BLEND);
-            glEnable(GL_LIGHTING);
-            glPopMatrix();
-            
-            // Contorno de alerta alienígena (sem iluminação)
-            glDisable(GL_LIGHTING);
-            glColor3f(0.0f, 1.0f, 0.0f); // Verde brilhante
-            glLineWidth(3.0f);
-            glPushMatrix();
-            glScalef(size.x, size.y, size.z);
-            glutWireCube(1.0f);
-            glPopMatrix();
-            glEnable(GL_LIGHTING);
+
             break;
             
         case MOVING_VERTICAL:
@@ -232,15 +215,7 @@ void Obstacle::render() const {
             glutSolidCube(1.0f);
             glPopMatrix();
             
-            // Contorno ciano (sem iluminação)
-            glDisable(GL_LIGHTING);
-            glColor3f(0.0f, 1.0f, 1.0f);
-            glLineWidth(2.0f);
-            glPushMatrix();
-            glScalef(size.x, size.y, size.z);
-            glutWireCube(1.0f);
-            glPopMatrix();
-            glEnable(GL_LIGHTING);
+
             break;
             
         case ROCKET:
@@ -301,15 +276,7 @@ void Obstacle::render() const {
             glutSolidCone(0.5f, 1.0f, 8, 1);
             glPopMatrix();
             
-            // Contorno de perigo (sem iluminação)
-            glDisable(GL_LIGHTING);
-            glColor3f(1.0f, 0.0f, 0.0f);
-            glLineWidth(3.0f);
-            glPushMatrix();
-            glScalef(size.x, size.y, size.z * 2.5f);
-            glutWireCube(1.0f);
-            glPopMatrix();
-            glEnable(GL_LIGHTING);
+
             break;
             
         case HIGH_OBSTACLE:
@@ -337,23 +304,7 @@ void Obstacle::render() const {
             glutSolidCone(0.5f, 1.0f, 8, 1);
             glPopMatrix();
             
-            // Efeito de energia (sem iluminação para efeito especial)
-            glDisable(GL_LIGHTING);
-            glColor3f(0.0f, 1.0f, 1.0f); // Ciano
-            glLineWidth(2.0f);
-            glPushMatrix();
-            glScalef(size.x, size.y, size.z);
-            glutWireCube(1.0f);
-            glPopMatrix();
-            
-            // Linhas de energia
-            glBegin(GL_LINES);
-            glVertex3f(-size.x * 0.4f, size.y * 0.3f, -size.z * 0.4f);
-            glVertex3f(size.x * 0.4f, size.y * 0.3f, size.z * 0.4f);
-            glVertex3f(size.x * 0.4f, size.y * 0.3f, -size.z * 0.4f);
-            glVertex3f(-size.x * 0.4f, size.y * 0.3f, size.z * 0.4f);
-            glEnd();
-            glEnable(GL_LIGHTING);
+
             break;
     }
     
@@ -375,4 +326,4 @@ Vector3 Obstacle::getMin() const {
 
 Vector3 Obstacle::getMax() const {
     return Vector3(position.x + size.x/2, position.y + size.y/2, position.z + size.z/2);
-}
+} 

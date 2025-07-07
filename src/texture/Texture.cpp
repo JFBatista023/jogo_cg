@@ -20,6 +20,7 @@ bool Texture::init() {
     createGalaxyTexture("galaxy");
     createStarFieldTexture("starfield");
     createNebulaTexture("nebula");
+    createRocketTexture("rocket_metal");
     
     initialized = true;
     std::cout << "Sistema de texturas inicializado com " << textures.size() << " texturas." << std::endl;
@@ -262,6 +263,139 @@ GLuint Texture::createNebulaTexture(const std::string& name, int width, int heig
     
     textures[name] = textureId;
     std::cout << "Textura de nebulosa criada: " << name << std::endl;
+    
+    return textureId;
+}
+
+GLuint Texture::createRocketTexture(const std::string& name, int width, int height) {
+    if (textures.find(name) != textures.end()) {
+        return textures[name];
+    }
+    
+    std::cout << "Criando textura de foguete espacial..." << std::endl;
+    
+    unsigned char* data = new unsigned char[width * height * 3];
+    
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int index = (y * width + x) * 3;
+            
+            // Base metálica cinza
+            unsigned char baseR = 130;
+            unsigned char baseG = 135;
+            unsigned char baseB = 150;
+            
+            // Adicionar padrão de placas metálicas hexagonais
+            int plateSize = 24;
+            int plateX = x / plateSize;
+            int plateY = y / plateSize;
+            
+            // Padrão hexagonal
+            bool isHexEdge = ((x % plateSize) < 2) || ((y % plateSize) < 2) || 
+                           ((x % plateSize) > plateSize - 3) || ((y % plateSize) > plateSize - 3);
+            
+            if (isHexEdge) {
+                // Bordas das placas - mais escuras
+                baseR = std::max(80, (int)baseR - 40);
+                baseG = std::max(80, (int)baseG - 40);
+                baseB = std::max(90, (int)baseB - 40);
+            } else {
+                // Centro das placas - variação aleatória
+                float plateVariation = ((plateX + plateY) % 4) * 0.08f;
+                baseR = (unsigned char)(baseR * (1.0f + plateVariation));
+                baseG = (unsigned char)(baseG * (1.0f + plateVariation));
+                baseB = (unsigned char)(baseB * (1.0f + plateVariation));
+            }
+            
+            // Adicionar detalhes de superfície metálica com ruído
+            float metalNoise = (rand() % 30) / 150.0f - 0.1f;
+            
+            // Linhas de soldas horizontais principais
+            if (y % 48 < 3) {
+                baseR = std::min(255, (int)baseR + 45);
+                baseG = std::min(255, (int)baseG + 35);
+                baseB = std::min(255, (int)baseB + 25);
+            }
+            
+            // Linhas de soldas verticais secundárias
+            if (x % 96 < 2) {
+                baseR = std::min(255, (int)baseR + 35);
+                baseG = std::min(255, (int)baseG + 30);
+                baseB = std::min(255, (int)baseB + 20);
+            }
+            
+            // Sistema de rebites mais detalhado
+            int rivetSpacing = 32;
+            int rivetX = x % rivetSpacing;
+            int rivetY = y % rivetSpacing;
+            float rivetDist = sqrt((rivetX - rivetSpacing/2) * (rivetX - rivetSpacing/2) + 
+                                 (rivetY - rivetSpacing/2) * (rivetY - rivetSpacing/2));
+            
+            if (rivetDist < 3) {
+                // Centro do rebite - muito brilhante
+                baseR = 200;
+                baseG = 205;
+                baseB = 220;
+            } else if (rivetDist < 5) {
+                // Anel do rebite - brilhante
+                baseR = std::min(255, (int)baseR + 50);
+                baseG = std::min(255, (int)baseG + 50);
+                baseB = std::min(255, (int)baseB + 60);
+            } else if (rivetDist < 7) {
+                // Sombra ao redor do rebite
+                baseR = std::max(50, (int)baseR - 25);
+                baseG = std::max(50, (int)baseG - 25);
+                baseB = std::max(60, (int)baseB - 25);
+            }
+            
+            // Adicionar arranhões e marcas de desgaste
+            if ((x + y * 7) % 150 < 2) {
+                // Arranhões brilhantes
+                baseR = std::min(255, (int)baseR + 60);
+                baseG = std::min(255, (int)baseG + 55);
+                baseB = std::min(255, (int)baseB + 70);
+            }
+            
+            // Manchas de oxidação ocasionais
+            if ((x * 3 + y * 5) % 200 < 3) {
+                baseR = std::max(100, (int)baseR - 20);
+                baseG = std::max(90, (int)baseG - 30);
+                baseB = std::max(80, (int)baseB - 40);
+            }
+            
+            // Padrão de identificação da nave (listras diagonais)
+            if ((x + y) % 64 < 4 && (x - y) % 64 < 4) {
+                baseR = std::min(255, (int)baseR + 30);
+                baseG = std::min(255, (int)baseG + 40);
+                baseB = std::min(255, (int)baseB + 60);
+            }
+            
+            // Aplicar variações finais
+            baseR = std::max(0, std::min(255, (int)(baseR * (1.0f + metalNoise))));
+            baseG = std::max(0, std::min(255, (int)(baseG * (1.0f + metalNoise))));
+            baseB = std::max(0, std::min(255, (int)(baseB * (1.0f + metalNoise))));
+            
+            data[index] = baseR;
+            data[index + 1] = baseG;
+            data[index + 2] = baseB;
+        }
+    }
+    
+    GLuint textureId;
+    glGenTextures(1, &textureId);
+    glBindTexture(GL_TEXTURE_2D, textureId);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    
+    delete[] data;
+    
+    textures[name] = textureId;
+    std::cout << "Textura de foguete espacial criada: " << name << std::endl;
     
     return textureId;
 }

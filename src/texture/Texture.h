@@ -24,6 +24,7 @@ public:
     static GLuint createGalaxyTexture(const std::string& name, int width = 512, int height = 512);
     static GLuint createStarFieldTexture(const std::string& name, int width = 512, int height = 512);
     static GLuint createNebulaTexture(const std::string& name, int width = 512, int height = 512);
+    static GLuint createRocketTexture(const std::string& name, int width = 512, int height = 512);
     
     // Obter textura carregada
     static GLuint getTexture(const std::string& name);

@@ -131,16 +131,8 @@ void Player::render() {
     glutSolidCube(1.0f);
     glPopMatrix();
     
-    // Desabilitar iluminação para contorno e efeitos
+    // Desabilitar iluminação para efeitos
     glDisable(GL_LIGHTING);
-    
-    // Contorno dourado
-    glColor3f(1.0f, 0.8f, 0.0f);
-    glLineWidth(2.0f);
-    glPushMatrix();
-    glScalef(scaleX, scaleY, scaleZ);
-    glutWireCube(1.0f);
-    glPopMatrix();
     
     // Efeito de deslize (rastro de energia)
     if (isSliding) {
