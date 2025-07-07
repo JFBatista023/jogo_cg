@@ -331,7 +331,7 @@ void display() {
     // Configurar projeção 3D
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(60.0, (double)WINDOW_WIDTH / WINDOW_HEIGHT, 0.1, 1000.0);
+    gluPerspective(60.0, (double)WINDOW_WIDTH / WINDOW_HEIGHT, 1.0, 1000.0);
     
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
@@ -408,7 +408,7 @@ void reshape(int width, int height) {
     
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(60.0, (double)width / height, 0.1, 1000.0);
+    gluPerspective(60.0, (double)width / height, 1.0, 1000.0);
     
     glMatrixMode(GL_MODELVIEW);
 }

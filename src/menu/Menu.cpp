@@ -109,7 +109,7 @@ void Menu::renderStarField() {
         
         glColor4f(0.8f, 0.9f, 1.0f, brightness);
         glPointSize(1.0f + sin(i * 0.2f) * 0.5f);
-        glBegin(GL_POINTS);
+    glBegin(GL_POINTS);
         glVertex2f(x, y);
         glEnd();
     }

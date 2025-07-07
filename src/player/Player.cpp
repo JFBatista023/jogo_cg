@@ -6,7 +6,7 @@
 const float Player::LANE_WIDTH = 3.0f;
 const float Player::JUMP_SPEED = 15.0f;
 const float Player::GRAVITY = -30.0f;
-const float Player::GROUND_Y = 0.5f;
+const float Player::GROUND_Y = 0.975f;
 const float Player::SLIDE_DURATION = 0.8f;
 const float Player::SLIDE_HEIGHT = 0.3f;
 const float Player::LANE_TRANSITION_SPEED = 8.0f;
@@ -93,64 +93,168 @@ void Player::update(float deltaTime) {
 
 void Player::render() {
     glPushMatrix();
-    
     // Posicionar o jogador
     glTranslatef(position.x, position.y, position.z);
-    
+
     // Escala baseada no estado (deslize torna o jogador mais baixo e largo)
     float scaleX = size;
     float scaleY = size;
     float scaleZ = size;
-    
-    if (isSliding) {
+    bool sliding = isSliding;
+    if (sliding) {
         scaleX *= 1.5f;  // Mais largo
         scaleY *= 0.5f;  // Mais baixo
         scaleZ *= 1.2f;  // Um pouco mais longo
     }
-    
-    // Material do jogador (azul ciano brilhante) - usando função utilitária
-    Lighting::setPlayerMaterial(0.0f, 0.8f, 1.0f, 0.8f);
-    
-    // Renderizar cubo principal
-    glPushMatrix();
     glScalef(scaleX, scaleY, scaleZ);
-    glutSolidCube(1.0f);
+
+    // Animação baseada no tempo global (corrida)
+    float t = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
+    drawCharacter(t, sliding);
+
     glPopMatrix();
-    
-    // Efeito de brilho interno - material energético mais brilhante
-    Lighting::setEnergyMaterial(0.5f, 1.0f, 1.0f, 1.5f);
+}
+
+// Desenha o boneco segmentado e animado
+void Player::drawCharacter(float t, bool sliding) {
+    // Cores
+    float skin[3]   = {1.0f, 0.85f, 0.6f};
+    float shirt[3]  = {0.15f, 0.45f, 1.0f}; // Azul mais vivo
+    float pants[3]  = {0.13f, 0.13f, 0.25f};
+    float shoes[3]  = {0.95f, 0.25f, 0.25f}; // Tênis vermelhos
+    float accent[3] = {1.0f, 0.8f, 0.2f};    // Cinto amarelo
+    float gloves[3] = {0.95f, 0.95f, 0.95f}; // Luvas brancas
+    float visor[3]  = {0.4f, 0.85f, 1.0f};   // Visor azul claro
+
+    // Proporções "heróicas"
+    float bodyH = 1.0f, bodyW = 0.38f, bodyD = 0.26f;
+    float headR = 0.23f;
+    float armL = 0.62f, armR = 0.11f;
+    float legL = 0.95f, legR = 0.14f;
+    float footL = 0.22f, footH = 0.09f;
+
+    // Animação de corrida (ângulos)
+    float runSpeed = sliding ? 0.0f : 7.0f;
+    float legSwing = sliding ? 0.0f : 45.0f * sinf(t * runSpeed);
+    float legSwing2 = sliding ? 0.0f : 45.0f * sinf(t * runSpeed + 3.1415f);
+    float armSwing = sliding ? 0.0f : 38.0f * sinf(t * runSpeed + 3.1415f);
+    float armSwing2 = sliding ? 0.0f : 38.0f * sinf(t * runSpeed);
+    float bodyLean = sliding ? 0.0f : 12.0f * sinf(t * runSpeed * 0.5f);
+
+    // Tronco
     glPushMatrix();
-    glScalef(scaleX * 0.8f, scaleY * 0.8f, scaleZ * 0.8f);
+    glRotatef(bodyLean, 1, 0, 0);
+    glColor3fv(shirt);
+    glScalef(bodyW, bodyH, bodyD);
     glutSolidCube(1.0f);
     glPopMatrix();
-    
-    // Núcleo brilhante - material energético muito brilhante
-    Lighting::setEnergyMaterial(1.0f, 1.0f, 1.0f, 3.0f);
+
+    // Cinto
     glPushMatrix();
-    glScalef(scaleX * 0.3f, scaleY * 0.3f, scaleZ * 0.3f);
+    glTranslatef(0.0f, -bodyH*0.23f, 0.0f);
+    glColor3fv(accent);
+    glScalef(bodyW*1.05f, bodyH*0.13f, bodyD*1.05f);
     glutSolidCube(1.0f);
     glPopMatrix();
-    
-    // Desabilitar iluminação para efeitos
-    glDisable(GL_LIGHTING);
-    
-    // Efeito de deslize (rastro de energia)
-    if (isSliding) {
-        glColor3f(0.0f, 1.0f, 0.5f); // Verde ciano
-        glLineWidth(3.0f);
-        glBegin(GL_LINES);
-        // Linhas de energia atrás do jogador
-        for (int i = 0; i < 5; i++) {
-            float offset = i * 0.3f;
-            glVertex3f(-scaleX * 0.3f, 0.0f, -scaleZ * 0.5f - offset);
-            glVertex3f(scaleX * 0.3f, 0.0f, -scaleZ * 0.5f - offset);
-        }
-        glEnd();
-    }
-    
-    // Reabilitar iluminação
-    glEnable(GL_LIGHTING);
-    
+
+    // Cabeça
+    glPushMatrix();
+    glTranslatef(0.0f, bodyH/2 + headR*0.93f, 0.0f);
+    glColor3fv(skin);
+    glutSolidSphere(headR, 18, 14);
+    // Visor futurista
+    glPushMatrix();
+    glTranslatef(0.0f, 0.03f, headR*0.7f);
+    glColor3fv(visor);
+    glScalef(0.7f, 0.38f, 0.18f);
+    glutSolidSphere(0.5f, 12, 8);
+    glPopMatrix();
+    glPopMatrix();
+
+    // Braço esquerdo
+    glPushMatrix();
+    glTranslatef(-(bodyW/2 + armR*0.7f), bodyH/2 - armR*0.1f, 0.0f);
+    glRotatef(armSwing, 1, 0, 0);
+    // Ombro
+    glColor3fv(shirt);
+    glutSolidSphere(armR*1.1f, 10, 8);
+    // Braço
+    glTranslatef(0.0f, -armL/2, 0.0f);
+    glPushMatrix();
+    glColor3fv(shirt);
+    glScalef(armR, armL, armR);
+    glutSolidCube(1.0f);
+    glPopMatrix();
+    // Luva
+    glTranslatef(0.0f, -armL/2 - armR*0.13f, 0.0f);
+    glColor3fv(gloves);
+    glutSolidSphere(armR*0.8f, 10, 8);
+    glPopMatrix();
+
+    // Braço direito
+    glPushMatrix();
+    glTranslatef((bodyW/2 + armR*0.7f), bodyH/2 - armR*0.1f, 0.0f);
+    glRotatef(armSwing2, 1, 0, 0);
+    // Ombro
+    glColor3fv(shirt);
+    glutSolidSphere(armR*1.1f, 10, 8);
+    // Braço
+    glTranslatef(0.0f, -armL/2, 0.0f);
+    glPushMatrix();
+    glColor3fv(shirt);
+    glScalef(armR, armL, armR);
+    glutSolidCube(1.0f);
+    glPopMatrix();
+    // Luva
+    glTranslatef(0.0f, -armL/2 - armR*0.13f, 0.0f);
+    glColor3fv(gloves);
+    glutSolidSphere(armR*0.8f, 10, 8);
+    glPopMatrix();
+
+    // Perna esquerda
+    glPushMatrix();
+    glTranslatef(-bodyW*0.22f, -bodyH/2, 0.0f);
+    glRotatef(legSwing, 1, 0, 0);
+    // Quadril
+    glColor3fv(pants);
+    glutSolidSphere(legR*1.1f, 10, 8);
+    // Perna
+    glTranslatef(0.0f, -legL/2, 0.0f);
+    glPushMatrix();
+    glColor3fv(pants);
+    glScalef(legR, legL, legR);
+    glutSolidCube(1.0f);
+    glPopMatrix();
+    // Tênis
+    glTranslatef(0.0f, -legL/2 - footH*0.5f, footL*0.3f);
+    glColor3fv(shoes);
+    glPushMatrix();
+    glScalef(legR*1.2f, footH, footL);
+    glutSolidCube(1.0f);
+    glPopMatrix();
+    glPopMatrix();
+
+    // Perna direita
+    glPushMatrix();
+    glTranslatef(bodyW*0.22f, -bodyH/2, 0.0f);
+    glRotatef(legSwing2, 1, 0, 0);
+    // Quadril
+    glColor3fv(pants);
+    glutSolidSphere(legR*1.1f, 10, 8);
+    // Perna
+    glTranslatef(0.0f, -legL/2, 0.0f);
+    glPushMatrix();
+    glColor3fv(pants);
+    glScalef(legR, legL, legR);
+    glutSolidCube(1.0f);
+    glPopMatrix();
+    // Tênis
+    glTranslatef(0.0f, -legL/2 - footH*0.5f, footL*0.3f);
+    glColor3fv(shoes);
+    glPushMatrix();
+    glScalef(legR*1.2f, footH, footL);
+    glutSolidCube(1.0f);
+    glPopMatrix();
     glPopMatrix();
 }
 

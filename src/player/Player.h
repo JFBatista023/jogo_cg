@@ -34,6 +34,7 @@ public:
     
     void update(float deltaTime);
     void render();
+    void drawCharacter(float t, bool sliding);
     void jump();
     void slide();
     void moveLeft();
